@@ -257,6 +257,155 @@ for test_script in test/test-*.sh; do
 done
 ```
 
+## 🌐 组件Web UI与访问信息
+
+### 📊 管理界面链接
+
+**大数据平台所有组件的Web管理界面均可通过本地端口访问：**
+
+#### 存储与计算层
+- **Hadoop NameNode** - http://localhost:19870
+- **Hadoop ResourceManager** - http://localhost:18088
+- **Hadoop DataNode** (示例) - http://localhost:19864
+- **Spark Master** - http://localhost:8080
+- **Spark History Server** - http://localhost:18080
+- **Spark Worker** (示例) - http://localhost:8081
+
+#### 数据仓库与数据库
+- **Hive Server2** - JDBC: jdbc:hive2://localhost:10000
+- **HBase Master** - http://localhost:16010
+- **HBase RegionServer** (示例) - http://localhost:16030
+
+#### 消息与流处理
+- **Flink Dashboard** - http://localhost:18081
+- **Kafka Manager** (如果部署) - http://localhost:9000
+
+#### 协调服务
+- **ZooKeeper** (无Web UI，使用CLI)
+
+### 🔐 账号密码信息
+
+#### MySQL数据库
+- **主机**: localhost:3306
+- **数据库**: hive_metastore
+- **用户名**: hiveuser
+- **密码**: hivepassword
+
+#### Hive数据仓库
+- **连接字符串**: jdbc:hive2://localhost:10000
+- **默认数据库**: default
+- **认证方式**: 无认证（开发环境）
+
+#### Hadoop集群
+- **HDFS Web UI**: 无需认证
+- **YARN Web UI**: 无需认证
+- **MapReduce History Server**: 无需认证
+
+#### Spark集群
+- **Spark Master UI**: 无需认证
+- **Spark History Server**: 无需认证
+
+#### Flink集群
+- **Flink Dashboard**: 无需认证
+
+#### Kafka集群
+- **Broker地址**: localhost:9092
+- **ZooKeeper连接**: localhost:2181
+
+#### HBase数据库
+- **HBase Master UI**: 无需认证
+- **Thrift Server**: localhost:9090
+
+### 🔧 常用访问命令
+
+#### HDFS文件系统操作
+```bash
+# 查看HDFS文件系统
+docker exec namenode hdfs dfs -ls /
+
+# 上传文件到HDFS
+docker exec namenode hdfs dfs -put /local/file /hdfs/path/
+
+# 查看HDFS状态
+docker exec namenode hdfs dfsadmin -report
+```
+
+#### YARN资源管理
+```bash
+# 查看YARN节点状态
+docker exec namenode yarn node -list
+
+# 查看运行的应用
+docker exec namenode yarn application -list
+
+# 杀死应用
+docker exec namenode yarn application -kill <application_id>
+```
+
+#### Hive数据查询
+```bash
+# 连接Hive Server2
+docker exec hive-server2 beeline -u jdbc:hive2://localhost:10000
+
+# 执行Hive SQL
+docker exec hive-server2 beeline -u jdbc:hive2://localhost:10000 -e "SHOW DATABASES;"
+```
+
+#### Spark作业提交
+```bash
+# 提交Spark作业到YARN
+docker exec spark-master spark-submit --master yarn --class com.example.Main /path/to/job.jar
+
+# 提交Spark作业到Standalone
+docker exec spark-master spark-submit --master spark://spark-master:7077 --class com.example.Main /path/to/job.jar
+```
+
+#### Flink作业管理
+```bash
+# 查看Flink作业列表
+docker exec flink-jobmanager /opt/flink/bin/flink list
+
+# 提交Flink作业
+docker exec flink-jobmanager /opt/flink/bin/flink run /path/to/job.jar
+
+# 取消Flink作业
+docker exec flink-jobmanager /opt/flink/bin/flink cancel <job_id>
+```
+
+#### Kafka主题管理
+```bash
+# 查看Kafka主题列表
+docker exec kafka1 /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server kafka1:9092
+
+# 创建Kafka主题
+docker exec kafka1 /opt/kafka/bin/kafka-topics.sh --create --topic test-topic --partitions 3 --replication-factor 3 --bootstrap-server kafka1:9092
+
+# 生产消息
+docker exec kafka1 /opt/kafka/bin/kafka-console-producer.sh --topic test-topic --bootstrap-server kafka1:9092
+
+# 消费消息
+docker exec kafka1 /opt/kafka/bin/kafka-console-consumer.sh --topic test-topic --from-beginning --bootstrap-server kafka1:9092
+```
+
+#### HBase数据操作
+```bash
+# 进入HBase Shell
+docker exec hbase-master hbase shell
+
+# 在HBase Shell中执行命令
+list           # 列出所有表
+create 'test', 'cf'  # 创建表
+put 'test', 'row1', 'cf:col1', 'value1'  # 插入数据
+scan 'test'    # 扫描表数据
+```
+
+### ⚠️ 安全注意事项
+
+1. **开发环境配置** - 当前配置为开发环境，生产环境需要加强安全配置
+2. **网络访问限制** - 建议在生产环境中限制外部访问
+3. **密码管理** - 生产环境应使用强密码和密钥管理
+4. **SSL/TLS加密** - 生产环境建议启用传输层加密
+
 ## 📋 测试说明
 
 项目包含完整的测试体系，每个组件都有对应的测试脚本和说明文档：
