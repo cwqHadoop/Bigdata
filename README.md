@@ -287,9 +287,11 @@ done
 
 #### MySQL数据库
 - **主机**: localhost:3306
-- **数据库**: hive_metastore
-- **用户名**: hiveuser
-- **密码**: hivepassword
+- **数据库**: hive
+- **用户名**: hive
+- **密码**: hive
+- **Root用户**: root
+- **Root密码**: root
 
 #### Hive数据仓库
 - **连接字符串**: jdbc:hive2://localhost:10000
