@@ -34,10 +34,14 @@
 ```text
 /
 ├── config/             # 所有集群的配置文件（按集群子目录划分）
+│   ├── environment.conf # 环境配置和版本管理文件
 │   ├── module-files.md # module目录文件列表记录
 │   └── [cluster]/      # 各集群配置文件
 ├── module/             # 存放安装包（通过.gitignore排除）
 ├── scripts/            # 运维脚本和启动脚本
+│   ├── update-dockerfile-versions.sh # 版本同步脚本
+│   ├── network.sh      # 网络管理脚本
+│   └── [component]-entrypoint.sh # 各组件启动脚本
 ├── test/               # 各组件健康检查与功能测试脚本
 │   ├── test-*.sh       # 测试脚本
 │   └── test-*.md       # 测试说明文档
@@ -45,6 +49,63 @@
 ├── dockerfile.<name>   # 各组件镜像构建文件
 ├── docker-compose.<name>.yml # 各集群的编排文件
 └── README.md           # 项目说明文档
+```
+
+## 🔧 关键组件说明
+
+### 环境配置文件 (`config/environment.conf`)
+这是项目的核心配置文件，用于统一管理所有组件的版本信息和环境设置：
+
+```bash
+# 大数据平台环境配置
+HADOOP_ENVIRONMENT=standard  # 可选: "ha" 或 "standard"
+CLUSTER_NETWORK=bigdata-net  # 集群网络名称
+
+# 组件版本信息（统一管理）
+HADOOP_VERSION=3.1.3
+SPARK_VERSION=3.1.1
+ZOOKEEPER_VERSION=3.6.3
+HBASE_VERSION=2.2.3
+HIVE_VERSION=3.1.2
+FLINK_VERSION=1.14.0
+FLUME_VERSION=1.9.0
+KAFKA_VERSION=2.4.1
+```
+
+**作用：**
+- ✅ **版本统一管理** - 所有组件版本集中配置
+- ✅ **环境切换** - 支持标准和高可用Hadoop环境切换
+- ✅ **网络配置** - 统一管理容器网络
+- ✅ **配置一致性** - 确保所有组件使用相同版本
+
+### 版本同步脚本 (`scripts/update-dockerfile-versions.sh`)
+自动化版本管理脚本，确保Dockerfile与配置文件版本一致：
+
+**功能：**
+- 🔄 **版本同步** - 自动更新所有Dockerfile中的版本号
+- 📥 **依赖下载** - 自动下载缺失的组件安装包
+- ✅ **一致性检查** - 验证版本配置一致性
+- 🌐 **网络检测** - 智能检测网络可用性
+
+**使用方式：**
+```bash
+# 运行版本同步脚本
+bash scripts/update-dockerfile-versions.sh
+```
+
+### 网络管理脚本 (`scripts/network.sh`)
+Docker网络管理脚本，创建和管理集群共享网络：
+
+**功能：**
+- 🌐 **网络创建** - 创建大数据平台专用网络
+- 🔍 **网络检查** - 检查网络是否存在
+- 📊 **网络信息** - 显示网络配置信息
+- 🔧 **幂等操作** - 支持重复执行
+
+**使用方式：**
+```bash
+# 创建或检查网络
+bash scripts/network.sh
 ```
 
 ## 🔧 包含的集群组件
@@ -69,15 +130,30 @@
 
 ## 🚀 快速开始
 
-### 1. 准备安装包
+### 1. 环境准备
+```bash
+# 创建集群网络
+bash scripts/network.sh
+
+# 同步版本配置（可选，确保版本一致性）
+bash scripts/update-dockerfile-versions.sh
+```
+
+### 2. 准备安装包
 请将所需的安装包下载并放入 `module/` 目录下，具体文件列表请参考 [config/module-files.md](config/module-files.md)。
 
-### 2. 构建基础镜像
+**或者使用自动下载（需要网络连接）：**
+```bash
+# 自动下载缺失的安装包
+bash scripts/update-dockerfile-versions.sh
+```
+
+### 3. 构建基础镜像
 ```bash
 docker build -t bigdata-base:latest -f dockerfile.base .
 ```
 
-### 3. 构建组件镜像
+### 4. 构建组件镜像
 ```bash
 # 构建所有组件镜像
 for component in hadoop hive spark flink kafka flume hbase zookeeper mysql; do
@@ -85,7 +161,7 @@ for component in hadoop hive spark flink kafka flume hbase zookeeper mysql; do
 done
 ```
 
-### 4. 启动集群
+### 5. 启动集群
 ```bash
 # 按需启动所需集群
 docker-compose -f docker-compose.hadoop.yml up -d
@@ -96,7 +172,7 @@ docker-compose -f docker-compose.kafka.yml up -d
 docker-compose -f docker-compose.flume.yml up -d
 ```
 
-### 5. 运行功能测试
+### 6. 运行功能测试
 ```bash
 # 测试所有组件
 for test_script in test/test-*.sh; do
