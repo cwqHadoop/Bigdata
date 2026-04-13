@@ -273,8 +273,9 @@ done
 
 #### 数据仓库与数据库
 - **Hive Server2** - JDBC: jdbc:hive2://localhost:10000
-- **HBase Master** - http://localhost:16010
-- **HBase RegionServer** (示例) - http://localhost:16030
+- **HBase Master** - http://localhost:16210
+- **HBase RegionServer1** - http://localhost:16030
+- **HBase RegionServer2** - http://localhost:16031
 
 #### 消息与流处理
 - **Flink Dashboard** - http://localhost:18081
