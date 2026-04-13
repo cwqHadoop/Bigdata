@@ -130,23 +130,21 @@ bash scripts/network.sh
 
 ## 🚀 快速开始
 
-### 1. 环境准备
+### 1. 准备安装包
+请将所需的安装包下载并放入 `module/` 目录下，具体文件列表请参考 [config/module-files.md](config/module-files.md)。
+
+**注意：** 建议手动下载安装包，因为自动下载会非常耗时。
+
+### 2. 环境准备
 ```bash
 # 创建集群网络
 bash scripts/network.sh
 
-# 同步版本配置（可选，确保版本一致性）
+# 同步版本配置（可选，如果已手动下载安装包）
 bash scripts/update-dockerfile-versions.sh
 ```
 
-### 2. 准备安装包
-请将所需的安装包下载并放入 `module/` 目录下，具体文件列表请参考 [config/module-files.md](config/module-files.md)。
-
-**或者使用自动下载（需要网络连接）：**
-```bash
-# 自动下载缺失的安装包
-bash scripts/update-dockerfile-versions.sh
-```
+**重要提示：** 如果已经手动下载了所有安装包，运行 `update-dockerfile-versions.sh` 只会进行版本同步，不会重新下载。如果缺少某些安装包，脚本会自动下载，但这会非常耗时。
 
 ### 3. 构建基础镜像
 ```bash
