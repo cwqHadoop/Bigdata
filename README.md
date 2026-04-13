@@ -160,14 +160,92 @@ done
 ```
 
 ### 5. 启动集群
+
+## 🔗 组件依赖关系说明
+
+**重要：** 请按照依赖关系顺序启动集群，避免组件间连接失败。
+
+### 依赖关系图
+```
+基础服务层
+├── MySQL (Hive元数据存储)
+├── ZooKeeper (协调服务)
+│   └── Hadoop HA (高可用集群)
+│   └── Kafka (消息队列)
+│   └── HBase (NoSQL数据库)
+└── Hadoop (标准集群)
+    └── Hive (数据仓库)
+    └── Spark (计算引擎)
+    └── HBase (NoSQL数据库)
+
+独立服务层
+├── Flink (流处理)
+└── Flume (数据采集)
+```
+
+### 推荐启动顺序
+
+#### 第一步：基础服务（必须）
 ```bash
-# 按需启动所需集群
+# 1. MySQL - Hive元数据存储
+docker-compose -f docker-compose.mysql.yml up -d
+
+# 2. ZooKeeper - 协调服务（Kafka、HBase、Hadoop HA依赖）
+docker-compose -f docker-compose.zookeeper.yml up -d
+
+# 等待基础服务就绪
+sleep 30
+```
+
+#### 第二步：存储与计算（核心组件）
+```bash
+# 3. Hadoop集群（选择一种环境）
+# 标准环境：
 docker-compose -f docker-compose.hadoop.yml up -d
+# 或者高可用环境：
+# docker-compose -f docker-compose.hadoop-ha.yml up -d
+
+# 等待Hadoop就绪
+sleep 60
+
+# 4. Hive数据仓库（依赖Hadoop和MySQL）
 docker-compose -f docker-compose.hive.yml up -d
+
+# 5. HBase数据库（依赖Hadoop和ZooKeeper）
+docker-compose -f docker-compose.hbase.yml up -d
+
+# 6. Spark计算引擎（依赖Hadoop）
 docker-compose -f docker-compose.spark.yml up -d
-docker-compose -f docker-compose.flink.yml up -d
+```
+
+#### 第三步：消息与流处理（可选）
+```bash
+# 7. Kafka消息队列（依赖ZooKeeper）
 docker-compose -f docker-compose.kafka.yml up -d
+
+# 8. Flink流处理（独立服务）
+docker-compose -f docker-compose.flink.yml up -d
+
+# 9. Flume数据采集（依赖Kafka）
 docker-compose -f docker-compose.flume.yml up -d
+```
+
+### 快速启动（全部组件）
+```bash
+# 按依赖顺序启动所有组件
+bash -c '
+  docker-compose -f docker-compose.mysql.yml up -d
+  docker-compose -f docker-compose.zookeeper.yml up -d
+  sleep 30
+  docker-compose -f docker-compose.hadoop.yml up -d
+  sleep 60
+  docker-compose -f docker-compose.hive.yml up -d
+  docker-compose -f docker-compose.hbase.yml up -d
+  docker-compose -f docker-compose.spark.yml up -d
+  docker-compose -f docker-compose.kafka.yml up -d
+  docker-compose -f docker-compose.flink.yml up -d
+  docker-compose -f docker-compose.flume.yml up -d
+'
 ```
 
 ### 6. 运行功能测试
