@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  namenode:
+    image: bigdata-hadoop:latest
+    container_name: namenode
+    hostname: namenode
+    command: ["namenode"]
+    ports:
+      - "19870:9870"
+      - "18088:8088"
+      - "19888:19888"
+    volumes:
+      - ./config/hadoop:/config/hadoop
+      - namenode_data:/opt/hadoop/data
+    networks:
+      - bigdata-net
+
+  datanode1:
+    image: bigdata-hadoop:latest
+    container_name: datanode1
+    hostname: datanode1
+    command: ["datanode"]
+    depends_on:
+      - namenode
+    ports:
+      - "19864:9864"
+    volumes:
+      - ./config/hadoop:/config/hadoop
+      - datanode1_data:/opt/hadoop/data
+    networks:
+      - bigdata-net
+
+  datanode2:
+    image: bigdata-hadoop:latest
+    container_name: datanode2
+    hostname: datanode2
+    command: ["datanode"]
+    depends_on:
+      - namenode
+    ports:
+      - "19865:9864"
+    volumes:
+      - ./config/hadoop:/config/hadoop
+      - datanode2_data:/opt/hadoop/data
+    networks:
+      - bigdata-net
+
+volumes:
+  namenode_data:
+  datanode1_data:
+  datanode2_data:
+
+networks:
+  bigdata-net:
+    external: true

@@ -1,0 +1,64 @@
+services:
+  spark-master:
+    image: bigdata-spark:latest
+    container_name: spark-master
+    hostname: spark-master
+    environment:
+      - ROLE=master
+      - HADOOP_ENVIRONMENT=${HADOOP_ENVIRONMENT:-ha}
+    volumes:
+      - ./config/spark:/config/spark
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+      - ./data/spark/logs:/opt/spark/logs
+    ports:
+      - "7077:7077"  # Spark Master端口
+      - "8080:8080"  # Spark Master Web UI
+      - "18080:18080"  # Spark History Server
+    networks:
+      - bigdata-net
+
+  spark-worker1:
+    image: bigdata-spark:latest
+    container_name: spark-worker1
+    hostname: spark-worker1
+    environment:
+      - ROLE=worker
+      - HADOOP_ENVIRONMENT=${HADOOP_ENVIRONMENT:-ha}
+    volumes:
+      - ./config/spark:/config/spark
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+      - ./data/spark/logs:/opt/spark/logs
+    ports:
+      - "8081:8081"  # Spark Worker Web UI
+    networks:
+      - bigdata-net
+    depends_on:
+      - spark-master
+
+  spark-worker2:
+    image: bigdata-spark:latest
+    container_name: spark-worker2
+    hostname: spark-worker2
+    environment:
+      - ROLE=worker
+      - HADOOP_ENVIRONMENT=${HADOOP_ENVIRONMENT:-ha}
+    volumes:
+      - ./config/spark:/config/spark
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+      - ./data/spark/logs:/opt/spark/logs
+    ports:
+      - "8082:8081"  # Spark Worker Web UI
+    networks:
+      - bigdata-net
+    depends_on:
+      - spark-master
+
+networks:
+  bigdata-net:
+    external: true

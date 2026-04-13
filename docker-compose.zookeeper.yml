@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  zoo1:
+    image: bigdata-zookeeper:latest
+    container_name: zoo1
+    hostname: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+    volumes:
+      - ./config/zookeeper:/config/zookeeper
+      - zoo1_data:/opt/zookeeper/data
+      - zoo1_datalog:/opt/zookeeper/datalog
+    networks:
+      - bigdata-net
+
+  zoo2:
+    image: bigdata-zookeeper:latest
+    container_name: zoo2
+    hostname: zoo2
+    ports:
+      - "2182:2181"
+    environment:
+      ZOO_MY_ID: 2
+    volumes:
+      - ./config/zookeeper:/config/zookeeper
+      - zoo2_data:/opt/zookeeper/data
+      - zoo2_datalog:/opt/zookeeper/datalog
+    networks:
+      - bigdata-net
+
+  zoo3:
+    image: bigdata-zookeeper:latest
+    container_name: zoo3
+    hostname: zoo3
+    ports:
+      - "2183:2181"
+    environment:
+      ZOO_MY_ID: 3
+    volumes:
+      - ./config/zookeeper:/config/zookeeper
+      - zoo3_data:/opt/zookeeper/data
+      - zoo3_datalog:/opt/zookeeper/datalog
+    networks:
+      - bigdata-net
+
+volumes:
+  zoo1_data:
+  zoo1_datalog:
+  zoo2_data:
+  zoo2_datalog:
+  zoo3_data:
+  zoo3_datalog:
+
+networks:
+  bigdata-net:
+    external: true

@@ -1,0 +1,56 @@
+version: '3.8'
+
+x-flink-taskmanager: &flink-taskmanager
+  image: bigdata-flink:latest
+  entrypoint: /opt/flink/bin/taskmanager.sh
+  command: start-foreground
+  environment:
+    - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=2
+  volumes:
+    - ./config/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml:ro
+  networks:
+    - bigdata-net
+  depends_on:
+    - flink-jobmanager
+
+services:
+  flink-jobmanager:
+    image: bigdata-flink:latest
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    entrypoint: /opt/flink/bin/jobmanager.sh
+    command: start-foreground
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - JOB_MANAGER_HEAP_MEMORY=1024m
+    volumes:
+      - ./config/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml:ro
+      - ./config/flink/workers:/opt/flink/conf/workers:ro
+      - ./data/flink/jobmanager:/opt/flink/data
+    ports:
+      - "18081:8081"
+      - "16123:6123"
+    networks:
+      - bigdata-net
+    # 依赖ZooKeeper集群，需要先启动zoo1,zoo2,zoo3
+
+  flink-taskmanager1:
+    <<: *flink-taskmanager
+    container_name: flink-taskmanager1
+    hostname: flink-taskmanager1
+    volumes:
+      - ./config/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml:ro
+      - ./data/flink/taskmanager1:/opt/flink/data
+
+  flink-taskmanager2:
+    <<: *flink-taskmanager
+    container_name: flink-taskmanager2
+    hostname: flink-taskmanager2
+    volumes:
+      - ./config/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml:ro
+      - ./data/flink/taskmanager2:/opt/flink/data
+
+networks:
+  bigdata-net:
+    external: true

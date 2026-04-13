@@ -1,0 +1,15 @@
+FROM mysql:5.7
+
+# 复制配置文件
+COPY config/mysql/my.cnf /etc/mysql/my.cnf
+
+# 复制启动脚本
+COPY scripts/mysql-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/mysql-entrypoint.sh
+
+# 暴露端口
+EXPOSE 3306
+
+# 设置启动命令
+ENTRYPOINT ["/usr/local/bin/mysql-entrypoint.sh"]
+CMD ["mysqld"]

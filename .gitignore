@@ -1,0 +1,50 @@
+# 排除module文件夹内的安装文件
+module/
+
+# 排除数据文件
+data/
+
+# 排除日志文件
+logs/
+*.log
+
+# 排除临时文件
+*.tmp
+*.temp
+
+# 排除IDE配置文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 排除系统文件
+.DS_Store
+Thumbs.db
+
+# 排除Docker相关文件（除了配置文件）
+*.tar.gz
+*.tar
+
+# 排除编译文件
+*.class
+*.jar
+*.war
+*.ear
+
+# 排除Python缓存文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 排除Node.js模块
+node_modules/
+
+# 排除环境配置文件
+.env
+.env.local
+
+# 排除备份文件
+*.bak
+*.backup

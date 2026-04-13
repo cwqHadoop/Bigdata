@@ -1,0 +1,39 @@
+FROM bigdata-hadoop:latest
+
+# 定义构建参数
+ARG HBASE_VERSION=2.2.3
+
+# 复制HBase安装包
+COPY module/hbase-${HBASE_VERSION}-bin.tar.gz /tmp/
+
+# 安装HBase
+RUN tar -xzf /tmp/hbase-${HBASE_VERSION}-bin.tar.gz && \
+    mv hbase-${HBASE_VERSION} /opt/hbase && \
+    rm /tmp/hbase-${HBASE_VERSION}-bin.tar.gz
+
+# 创建日志目录
+RUN mkdir -p /opt/hbase/logs
+
+# 复制配置文件
+COPY config/hbase/ /config/hbase/
+
+# 复制启动脚本
+COPY scripts/hbase-entrypoint.sh /scripts/hbase-entrypoint.sh
+RUN chmod +x /scripts/hbase-entrypoint.sh
+
+# 设置环境变量
+ENV HBASE_HOME=/opt/hbase
+ENV PATH=$HBASE_HOME/bin:$PATH
+
+# 设置工作目录
+WORKDIR /opt/hbase
+
+# 暴露端口
+# HBase Master Web UI: 16010
+# HBase RegionServer: 16020
+# HBase REST API: 8080
+# HBase Thrift API: 9090
+EXPOSE 16010 16020 8080 9090
+
+# 启动脚本
+ENTRYPOINT ["/scripts/hbase-entrypoint.sh"]

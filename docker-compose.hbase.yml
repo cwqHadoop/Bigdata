@@ -1,0 +1,59 @@
+services:
+  hbase-master:
+    image: bigdata-hbase:latest
+    container_name: hbase-master
+    hostname: hbase-master
+    ports:
+      - "16210:16010"  # HBase Master Web UI
+      - "16200:16000"  # HBase Master RPC
+      - "16220:16020"  # HBase RegionServer
+      - "18280:8080"    # HBase REST API
+      - "9290:9090"    # HBase Thrift API
+    volumes:
+      - ./data/hbase/master:/opt/hbase/logs
+      - ./config/hbase:/config/hbase
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+    environment:
+      - HADOOP_ENVIRONMENT=standard
+    networks:
+      bigdata-net:
+
+  hbase-regionserver1:
+    image: bigdata-hbase:latest
+    container_name: hbase-regionserver1
+    hostname: hbase-regionserver1
+    ports:
+      - "16030:16030"  # RegionServer Web UI
+    volumes:
+      - ./data/hbase/regionserver1:/opt/hbase/logs
+      - ./config/hbase:/config/hbase
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+    environment:
+      - HADOOP_ENVIRONMENT=standard
+    networks:
+      bigdata-net:
+
+  hbase-regionserver2:
+    image: bigdata-hbase:latest
+    container_name: hbase-regionserver2
+    hostname: hbase-regionserver2
+    ports:
+      - "16031:16030"  # RegionServer Web UI
+    volumes:
+      - ./data/hbase/regionserver2:/opt/hbase/logs
+      - ./config/hbase:/config/hbase
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+    environment:
+      - HADOOP_ENVIRONMENT=standard
+    networks:
+      bigdata-net:
+
+networks:
+  bigdata-net:
+    external: true

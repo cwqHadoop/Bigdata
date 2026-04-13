@@ -1,0 +1,28 @@
+FROM bigdata-base:latest
+
+ENV FLUME_VERSION=1.9.0
+ENV FLUME_HOME=/opt/flume
+ENV PATH=$FLUME_HOME/bin:$PATH
+
+COPY module/apache-flume-${FLUME_VERSION}-bin.tar.gz /tmp/
+COPY module/guava-27.0-jre.jar /tmp/
+
+RUN apt-get update && apt-get install -y netcat && \
+    mkdir -p /opt && \
+    cd /opt && \
+    tar -xf /tmp/apache-flume-${FLUME_VERSION}-bin.tar.gz && \
+    mv apache-flume-${FLUME_VERSION}-bin flume && \
+    # 复制必要的依赖包
+    cp /tmp/guava-27.0-jre.jar $FLUME_HOME/lib/ && \
+    rm -rf /tmp/*
+
+# 创建日志目录
+RUN mkdir -p /var/log/flume && \
+    mkdir -p /var/log/application
+
+COPY scripts/flume-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/flume-entrypoint.sh
+
+EXPOSE 41414
+
+ENTRYPOINT ["/usr/local/bin/flume-entrypoint.sh"]

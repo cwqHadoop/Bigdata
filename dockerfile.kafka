@@ -1,0 +1,28 @@
+FROM bigdata-base:latest
+
+ENV KAFKA_VERSION=2.4.1
+ENV SCALA_VERSION=2.12
+ENV KAFKA_HOME=/opt/kafka
+ENV PATH=$KAFKA_HOME/bin:$PATH
+
+
+COPY module/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz /tmp/
+
+RUN mkdir -p /opt && \
+    cd /opt && \
+    tar -xf /tmp/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz && \
+    mv kafka_${SCALA_VERSION}-${KAFKA_VERSION} kafka && \
+    rm -rf /opt/kafka/bin/windows /tmp/*
+
+# Copy custom config files
+COPY config/kafka/server.properties /opt/kafka/config/server.properties
+COPY config/kafka/server2.properties /opt/kafka/config/server2.properties
+COPY config/kafka/server3.properties /opt/kafka/config/server3.properties
+
+# Copy entrypoint script and fix line endings
+COPY scripts/kafka-entrypoint.sh /usr/local/bin/
+RUN  chmod +x /usr/local/bin/kafka-entrypoint.sh
+
+EXPOSE 9092
+
+ENTRYPOINT ["/usr/local/bin/kafka-entrypoint.sh"]

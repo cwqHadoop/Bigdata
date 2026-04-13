@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  flume-kafka:
+    image: bigdata-flume:latest
+    container_name: flume-kafka
+    hostname: flume-kafka
+    command: kafka
+    volumes:
+      - ./config/flume/flume-kafka.conf:/opt/flume/conf/flume-kafka.conf:ro
+      - ./data/flume/logs:/var/log/flume
+      - ./data/flume/logs:/var/log/application
+    networks:
+      - bigdata-net
+    # 依赖Kafka集群，需要先启动kafka服务
+
+networks:
+  bigdata-net:
+    external: true

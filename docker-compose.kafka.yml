@@ -1,0 +1,49 @@
+version: '3.8'
+
+x-kafka-broker: &kafka-broker
+  image: bigdata-kafka:latest
+  entrypoint: /opt/kafka/bin/kafka-server-start.sh
+  networks:
+    - bigdata-net
+
+services:
+  kafka1:
+    <<: *kafka-broker
+    container_name: kafka1
+    hostname: kafka1
+    command: /opt/kafka/config/server.properties
+    volumes:
+      - ./config/kafka/server.properties:/opt/kafka/config/server.properties:ro
+      - ./data/kafka/kafka1:/opt/kafka/data
+    ports:
+      - "19092:9092"
+
+  kafka2:
+    <<: *kafka-broker
+    container_name: kafka2
+    hostname: kafka2
+    command: /opt/kafka/config/server2.properties
+    volumes:
+      - ./config/kafka/server2.properties:/opt/kafka/config/server2.properties:ro
+      - ./data/kafka/kafka2:/opt/kafka/data
+    ports:
+      - "19093:9092"
+    depends_on:
+      - kafka1
+
+  kafka3:
+    <<: *kafka-broker
+    container_name: kafka3
+    hostname: kafka3
+    command: /opt/kafka/config/server3.properties
+    volumes:
+      - ./config/kafka/server3.properties:/opt/kafka/config/server3.properties:ro
+      - ./data/kafka/kafka3:/opt/kafka/data
+    ports:
+      - "19094:9092"
+    depends_on:
+      - kafka1
+
+networks:
+  bigdata-net:
+    external: true

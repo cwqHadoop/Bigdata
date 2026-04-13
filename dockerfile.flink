@@ -1,0 +1,21 @@
+FROM bigdata-base:latest
+
+ENV FLINK_VERSION=1.14.0
+ENV SCALA_VERSION=2.12
+ENV FLINK_HOME=/opt/flink
+ENV PATH=$FLINK_HOME/bin:$PATH
+
+COPY module/flink-${FLINK_VERSION}-bin-scala_${SCALA_VERSION}.tar /tmp/
+
+RUN mkdir -p /opt && \
+    cd /opt && \
+    tar -xf /tmp/flink-${FLINK_VERSION}-bin-scala_${SCALA_VERSION}.tar && \
+    mv flink-${FLINK_VERSION}-bin-scala_${SCALA_VERSION} flink && \
+    rm -rf /opt/flink/examples /tmp/*
+
+COPY scripts/flink-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/flink-entrypoint.sh
+
+EXPOSE 6123 8081 6124 6125
+
+ENTRYPOINT ["/usr/local/bin/flink-entrypoint.sh"]

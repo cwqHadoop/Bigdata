@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <!-- HBase集群名称 (由启动脚本动态替换) -->
+  <property>
+    <name>hbase.rootdir</name>
+    <value>HBASE_ROOTDIR_PLACEHOLDER</value>
+  </property>
+  
+  <!-- ZooKeeper集群配置 -->
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>zoo1,zoo2,zoo3</value>
+  </property>
+  
+  <!-- ZooKeeper数据目录 -->
+  <property>
+    <name>hbase.zookeeper.property.dataDir</name>
+    <value>/data/zookeeper</value>
+  </property>
+  
+  <!-- HBase集群分布式模式 -->
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>true</value>
+  </property>
+  
+  <!-- HBase Master Web UI端口 -->
+  <property>
+    <name>hbase.master.info.port</name>
+    <value>16010</value>
+  </property>
+  
+  <!-- RegionServer Web UI端口 -->
+  <property>
+    <name>hbase.regionserver.info.port</name>
+    <value>16030</value>
+  </property>
+  
+  <!-- HBase Master绑定地址 -->
+  <property>
+    <name>hbase.master</name>
+    <value>0.0.0.0</value>
+  </property>
+  
+  <!-- 启用HBase REST服务 -->
+  <property>
+    <name>hbase.rest.port</name>
+    <value>8080</value>
+  </property>
+  
+  <!-- 启用HBase Thrift服务 -->
+  <property>
+    <name>hbase.thrift.port</name>
+    <value>9090</value>
+  </property>
+
+  <!-- 解决HDFS不支持hflush/hsync导致的启动失败问题 -->
+  <property>
+    <name>hbase.unsafe.stream.capability.enforce</name>
+    <value>false</value>
+    <description>强制关闭流能力检查，允许在不支持hflush的HDFS上运行HBase</description>
+  </property>
+
+</configuration>

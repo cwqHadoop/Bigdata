@@ -1,0 +1,41 @@
+FROM ubuntu:20.04
+
+# 设置非交互模式，避免安装过程中卡住
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 替换为阿里云源以加快下载速度
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+
+# 安装必要的包：OpenJDK 8, SSH 服务及客户端, 网络工具
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    openjdk-8-jdk-headless \
+    openssh-server \
+    openssh-client \
+    curl \
+    wget \
+    net-tools \
+    iproute2 \
+    sudo \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 配置环境变量
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV PATH=$PATH:$JAVA_HOME/bin
+
+# 配置 SSH 免密登录
+RUN ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa && \
+    cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && \
+    chmod 0600 ~/.ssh/authorized_keys && \
+    mkdir -p /run/sshd
+
+# 修复 SSH 登录问题 (避免登录后被踢出)
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+
+# 暴露 SSH 端口
+EXPOSE 22
+
+# 启动 SSH 服务
+CMD ["/usr/sbin/sshd", "-D"]

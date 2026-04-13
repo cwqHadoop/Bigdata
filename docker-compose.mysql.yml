@@ -1,0 +1,63 @@
+services:
+  hive-metastore:
+    image: bigdata-hive:latest
+    container_name: hive-metastore
+    hostname: hive-metastore
+    ports:
+      - "19083:9083"  # Hive Metastore
+    volumes:
+      - ./data/hive/metastore:/opt/hive/logs
+      - ./config/hive:/config/hive
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+    environment:
+      - HADOOP_ENVIRONMENT=standard
+    networks:
+      bigdata-net:
+        aliases:
+          - hive-metastore
+
+  hive-server2:
+    image: bigdata-hive:latest
+    container_name: hive-server2
+    hostname: hive-server2
+    ports:
+      - "11000:10000"  # Hive Server2
+      - "11002:10002"  # Hive Web UI
+    volumes:
+      - ./data/hive/server2:/opt/hive/logs
+      - ./config/hive:/config/hive
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+    environment:
+      - HADOOP_ENVIRONMENT=standard
+    networks:
+      bigdata-net:
+    depends_on:
+      - hive-metastore
+
+  hive-cli:
+    image: bigdata-hive:latest
+    container_name: hive-cli
+    hostname: hive-cli
+    volumes:
+      - ./data/hive/cli:/opt/hive/logs
+      - ./config/hive:/config/hive
+      - ./config/hadoop:/config/hadoop
+      - ./config/hadoop-ha:/config/hadoop-ha
+      - ./config/environment.conf:/config/environment.conf:ro
+    environment:
+      - HADOOP_ENVIRONMENT=standard
+    networks:
+      bigdata-net:
+    depends_on:
+      - hive-metastore
+      - hive-server2
+    stdin_open: true
+    tty: true
+
+networks:
+  bigdata-net:
+    external: true

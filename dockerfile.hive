@@ -1,0 +1,46 @@
+FROM bigdata-hadoop:latest
+
+# 环境变量配置
+ENV HIVE_VERSION=3.1.2
+ENV HIVE_HOME=/opt/hive
+ENV HADOOP_HOME=/opt/hadoop
+ENV HADOOP_PREFIX=/opt/hadoop
+ENV PATH=$HADOOP_HOME/bin:$HIVE_HOME/bin:$PATH
+
+# 安装Hive依赖
+RUN apt-get update && apt-get install -y \
+    mysql-client \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制Hive安装包并解压
+COPY module/apache-hive-${HIVE_VERSION}-bin.tar.gz /tmp/
+RUN tar -xzf /tmp/apache-hive-${HIVE_VERSION}-bin.tar.gz && \
+    mv apache-hive-${HIVE_VERSION}-bin /opt/hive && \
+    rm /tmp/apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+# 修复Guava版本冲突
+COPY module/guava-27.0-jre.jar /tmp/
+RUN rm -f /opt/hive/lib/guava-*.jar && \
+    cp /tmp/guava-27.0-jre.jar /opt/hive/lib/ && \
+    rm /tmp/guava-27.0-jre.jar
+
+# 复制MySQL JDBC驱动 (完美适配您的 MySQL 5.7)
+COPY module/mysql-connector-java-5.1.49.jar /tmp/
+RUN cp /tmp/mysql-connector-java-5.1.49.jar /opt/hive/lib/ && \
+    rm /tmp/mysql-connector-java-5.1.49.jar
+
+# 创建日志目录
+RUN mkdir -p /opt/hive/logs
+
+# 复制配置文件和启动脚本
+COPY config/hive/ /config/hive/
+COPY scripts/hive-entrypoint.sh /scripts/hive-entrypoint.sh
+RUN chmod +x /scripts/hive-entrypoint.sh
+
+# 设置工作目录和暴露端口
+WORKDIR /opt/hive
+EXPOSE 10000 9083 10002
+
+# 设置启动入口
+ENTRYPOINT ["/scripts/hive-entrypoint.sh"]
