@@ -1,8 +1,21 @@
 #!/bin/bash
 
-echo "=== Hadoop HA 高可用集群测试 ==="
-echo "测试时间: $(date)"
-echo
+# 日志文件配置
+LOG_DIR="test/test-log"
+LOG_FILE="$LOG_DIR/test-hadoop-ha-$(date +%Y%m%d-%H%M%S).log"
+
+# 创建日志目录
+mkdir -p "$LOG_DIR"
+
+# 日志函数
+log() {
+    echo "$1" | tee -a "$LOG_FILE"
+}
+
+
+log "=== Hadoop HA 高可用集群测试 ==="
+log "测试时间: $(date)"
+log ""
 
 # 读取 Hadoop 版本号
 ENV_CONF="../config/environment.conf"
@@ -13,17 +26,17 @@ else
     echo "警告: 环境配置文件不存在，使用默认版本 3.1.3"
     HADOOP_VERSION="3.1.3"
 fi
-echo
+log ""
 
 # 检查 Hadoop HA 容器状态
-echo "1. 检查 Hadoop HA 容器状态..."
-docker ps | grep -E "namenode|datanode|journalnode"
-echo
+log "1. 检查 Hadoop HA 容器状态..."
+docker ps | grep -E "namenode|datanode|journalnode" | tee -a "$LOG_FILE"
+log ""
 
 # 测试 JournalNode 状态
-echo "2. 测试 JournalNode 集群状态..."
+log "2. 测试 JournalNode 集群状态..."
 for i in 1 2 3; do
-    jn_status=$(docker exec journalnode$i jps 2>/dev/null | grep JournalNode | wc -l)
+    jn_status=$(docker exec journalnode$i jps 2>/dev/null | grep JournalNode | wc -l) | tee -a "$LOG_FILE"
     if [ "$jn_status" -eq 1 ]; then
         echo "✓ JournalNode$i 正常运行"
     else
@@ -32,10 +45,10 @@ for i in 1 2 3; do
 done
 
 # 测试 NameNode HA 状态
-echo "3. 测试 NameNode HA 高可用状态..."
+log "3. 测试 NameNode HA 高可用状态..."
 
 # 检查 NameNode1 状态
-echo "3.1 检查 NameNode1 状态..."
+log "3.1 检查 NameNode1 状态..."
 nn1_status=$(docker exec namenode1 hdfs haadmin -getServiceState nn1 2>/dev/null)
 if [ "$nn1_status" = "active" ] || [ "$nn1_status" = "standby" ]; then
     echo "✓ NameNode1 状态: $nn1_status"
@@ -44,7 +57,7 @@ else
 fi
 
 # 检查 NameNode2 状态
-echo "3.2 检查 NameNode2 状态..."
+log "3.2 检查 NameNode2 状态..."
 nn2_status=$(docker exec namenode2 hdfs haadmin -getServiceState nn2 2>/dev/null)
 if [ "$nn2_status" = "active" ] || [ "$nn2_status" = "standby" ]; then
     echo "✓ NameNode2 状态: $nn2_status"
@@ -53,7 +66,7 @@ else
 fi
 
 # 验证 HA 配置
-echo "3.3 验证 HA 配置..."
+log "3.3 验证 HA 配置..."
 ha_status=$(docker exec namenode1 hdfs haadmin -getAllServiceState 2>/dev/null)
 if [ -n "$ha_status" ]; then
     echo "✓ HA 配置验证成功"
@@ -63,7 +76,7 @@ else
 fi
 
 # 测试 Web UI 可访问性
-echo "4. 测试 Web UI 可访问性..."
+log "4. 测试 Web UI 可访问性..."
 
 # 测试 Active NameNode Web UI
 active_nn=""
@@ -106,7 +119,7 @@ if [ -n "$standby_nn" ]; then
 fi
 
 # 测试 ResourceManager Web UI
-echo "4.3 测试 ResourceManager Web UI..."
+log "4.3 测试 ResourceManager Web UI..."
 rm_status=$(curl -s -L -o /dev/null -w "%{http_code}" http://localhost:18088)
 if [ "$rm_status" = "200" ]; then
     echo "✓ ResourceManager Web UI 正常 (http://localhost:18088)"
@@ -115,14 +128,14 @@ else
 fi
 
 # 测试 HDFS 文件系统操作
-echo "5. 测试 HDFS 文件系统操作..."
+log "5. 测试 HDFS 文件系统操作..."
 
 # 使用 Active NameNode 进行操作
 if [ -n "$active_nn" ]; then
     echo "5.1 使用 Active NameNode ($active_nn) 测试 HDFS..."
     
     # 检查 HDFS 状态
-    hdfs_status=$(docker exec $active_nn hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | awk '{print $3}')
+    hdfs_status=$(docker exec $active_nn hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | awk '{print $3}') | tee -a "$LOG_FILE"
     if [ -n "$hdfs_status" ]; then
         echo "✓ HDFS 正常运行，活跃 DataNode 数量: $hdfs_status"
     else
@@ -171,7 +184,7 @@ if [ -n "$active_nn" ]; then
 fi
 
 # 测试故障转移
-echo "6. 测试故障转移功能..."
+log "6. 测试故障转移功能..."
 
 if [ -n "$active_nn" ] && [ -n "$standby_nn" ]; then
     echo "6.1 手动触发故障转移..."
@@ -226,7 +239,7 @@ else
 fi
 
 # 测试 YARN 资源管理
-echo "7. 测试 YARN 资源管理..."
+log "7. 测试 YARN 资源管理..."
 
 if [ -n "$active_nn" ]; then
     echo "7.1 检查 YARN 节点状态..."
@@ -270,25 +283,29 @@ if [ -n "$active_nn" ]; then
 fi
 
 # 清理测试数据
-echo "8. 清理测试数据..."
+log "8. 清理测试数据..."
 if [ -n "$active_nn" ]; then
     docker exec $active_nn hdfs dfs -rm -r -f /test 2>/dev/null
 fi
 rm -f /tmp/ha-test.txt /tmp/ha-input.txt
 
-echo "✓ 测试数据清理完成"
+log "✓ 测试数据清理完成"
 
 # 综合测试结果
-echo
-echo "=== Hadoop HA 高可用集群测试完成 ==="
-echo "测试总结:"
-echo "- JournalNode 集群: $([ "$jn_status" -eq 1 ] && echo "✓ 正常" || echo "✗ 异常")"
-echo "- NameNode HA 状态: $([ -n "$ha_status" ] && echo "✓ 正常" || echo "✗ 异常")"
-echo "- Web UI 可访问性: $([ "$active_status" = "200" ] && echo "✓ 正常" || echo "✗ 异常")"
-echo "- HDFS 文件系统: $([ -n "$hdfs_status" ] && echo "✓ 正常" || echo "✗ 异常")"
-echo "- 数据同步: $([ "$standby_content" = "Hadoop HA Test Data" ] && echo "✓ 正常" || echo "✗ 异常")"
-echo "- 故障转移: $([ "$new_nn1_status" != "$nn1_status" ] && echo "✓ 正常" || echo "✗ 异常")"
-echo "- YARN 资源管理: $([ -n "$yarn_nodes" ] && echo "✓ 正常" || echo "✗ 异常")"
+log ""
+log "=== Hadoop HA 高可用集群测试完成 ==="
+log "测试总结:"
+log "- JournalNode 集群: $([ "$jn_status" -eq 1 ] && echo "✓ 正常" || echo "✗ 异常")"
+log "- NameNode HA 状态: $([ -n "$ha_status" ] && echo "✓ 正常" || echo "✗ 异常")"
+log "- Web UI 可访问性: $([ "$active_status" = "200" ] && echo "✓ 正常" || echo "✗ 异常")"
+log "- HDFS 文件系统: $([ -n "$hdfs_status" ] && echo "✓ 正常" || echo "✗ 异常")"
+log "- 数据同步: $([ "$standby_content" = "Hadoop HA Test Data" ] && echo "✓ 正常" || echo "✗ 异常")"
+log "- 故障转移: $([ "$new_nn1_status" != "$nn1_status" ] && echo "✓ 正常" || echo "✗ 异常")"
+log "- YARN 资源管理: $([ -n "$yarn_nodes" ] && echo "✓ 正常" || echo "✗ 异常")"
 
-echo
-echo "详细测试报告已生成，Hadoop HA 高可用集群功能验证完成！"
+log ""
+log "详细测试报告已生成，Hadoop HA 高可用集群功能验证完成！"
+
+# 记录测试结束时间
+log "测试结束时间: $(date)"
+log "测试结果已保存到: $LOG_FILE"

@@ -11,8 +11,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志文件
-LOG_FILE="hive-test-$(date +%Y%m%d-%H%M%S).log"
+# 日志文件配置
+LOG_DIR="test/test-log"
+LOG_FILE="$LOG_DIR/hive-test-$(date +%Y%m%d-%H%M%S).log"
+
+# 创建日志目录
+mkdir -p "$LOG_DIR"
 
 # 函数：打印带颜色的消息
 print_info() {

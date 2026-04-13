@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# 日志文件配置
+LOG_DIR="test/test-log"
+LOG_FILE="$LOG_DIR/test-zookeeper-$(date +%Y%m%d-%H%M%S).log"
+
+# 创建日志目录
+mkdir -p "$LOG_DIR"
+
+# 日志函数
+log() {
+    echo "$1" | tee -a "$LOG_FILE"
+}
+
+
 # 设置字符编码
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -47,7 +60,7 @@ check_command() {
 # 函数：检查Docker容器是否运行
 check_container() {
     local container_name=$1
-    if docker ps | grep -q "$container_name"; then
+    if docker ps | grep -q "$container_name"; then | tee -a "$LOG_FILE"
         return 0
     else
         return 1
@@ -62,7 +75,7 @@ print_info "=== ZooKeeper Cluster Test ==="
 log "ZooKeeper集群测试开始"
 print_info "Test Time: $(date)"
 print_info "Log file: $LOG_FILE"
-echo
+log ""
 
 # 读取 ZooKeeper 版本号
 ENV_CONF="../config/environment.conf"
@@ -73,7 +86,7 @@ else
     print_warning "环境配置文件不存在，使用默认版本 3.6.3"
     ZOOKEEPER_VERSION="3.6.3"
 fi
-echo
+log ""
 
 # 检查 ZooKeeper 容器状态
 print_info "1. 检查 ZooKeeper 容器状态..."
@@ -84,7 +97,7 @@ all_running=true
 for i in 1 2 3; do
     container_name="zoo$i"
     if check_container "$container_name"; then
-        container_status=$(docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep "$container_name")
+        container_status=$(docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep "$container_name") | tee -a "$LOG_FILE"
         print_success "$container_name: 运行中"
         echo "   $container_status"
     else
@@ -99,7 +112,7 @@ if [ "$all_running" = "false" ]; then
 fi
 
 print_success "所有ZooKeeper容器正常运行"
-echo
+log ""
 
 # 测试 ZooKeeper 服务可访问性
 print_info "2. 测试 ZooKeeper 服务可访问性..."
@@ -172,7 +185,7 @@ if [ "$all_nodes_accessible" = "false" ]; then
 fi
 
 print_success "所有ZooKeeper节点可正常访问"
-echo
+log ""
 
 # 测试 ZooKeeper 集群状态
 print_info "3. 测试 ZooKeeper 集群状态..."
@@ -278,7 +291,7 @@ if [ $total_nodes -eq 3 ]; then
     fi
 fi
 
-echo
+log ""
 
 # 测试 ZooKeeper 基本功能
 print_info "4. 测试 ZooKeeper 基本功能..."
@@ -353,7 +366,7 @@ else
     log "未找到领导者节点，跳过功能测试"
 fi
 
-echo
+log ""
 
 # 测试 ZooKeeper 集群容错性
 print_info "5. 测试 ZooKeeper 集群容错性..."
@@ -369,12 +382,12 @@ for i in 1 2 3; do
     
     # 检查配置文件
     if docker exec "$container_name" test -f "/opt/zookeeper/conf/zoo.cfg"; then
-        config_nodes=$(docker exec "$container_name" cat /opt/zookeeper/conf/zoo.cfg 2>/dev/null | grep "^server" | wc -l)
+        config_nodes=$(docker exec "$container_name" cat /opt/zookeeper/conf/zoo.cfg 2>/dev/null | grep "^server" | wc -l) | tee -a "$LOG_FILE"
         if [ "$config_nodes" -eq 3 ]; then
             print_success "     - 配置节点数: 3 (正常)"
             
             # 显示配置的服务器列表
-            servers=$(docker exec "$container_name" cat /opt/zookeeper/conf/zoo.cfg 2>/dev/null | grep "^server")
+            servers=$(docker exec "$container_name" cat /opt/zookeeper/conf/zoo.cfg 2>/dev/null | grep "^server") | tee -a "$LOG_FILE"
             echo "     - 服务器配置:"
             echo "$servers" | while read -r server; do
                 echo "       $server"
@@ -404,7 +417,7 @@ for i in 1 2 3; do
     
     # 检查数据目录
     if docker exec "$container_name" test -d "/opt/zookeeper/data"; then
-        data_files=$(docker exec "$container_name" ls -la /opt/zookeeper/data/ 2>/dev/null | grep -v "^total" | wc -l)
+        data_files=$(docker exec "$container_name" ls -la /opt/zookeeper/data/ 2>/dev/null | grep -v "^total" | wc -l) | tee -a "$LOG_FILE"
         if [ "$data_files" -gt 2 ]; then
             print_success "     - 数据目录: 正常 ($data_files 个文件)"
         else
@@ -475,7 +488,7 @@ else
     log "集群选举状态异常"
 fi
 
-echo
+log ""
 
 # 测试 ZooKeeper 四字命令
 print_info "6. 测试 ZooKeeper 四字命令..."
@@ -593,11 +606,11 @@ fi
 print_info "9. 生成测试报告..."
 log "生成综合测试报告"
 
-echo
+log ""
 print_info "=== ZooKeeper 集群测试完成 ==="
 print_info "测试时间: $(date)"
 print_info "日志文件: $LOG_FILE"
-echo
+log ""
 
 # 计算测试成功率
 success_count=0
@@ -663,7 +676,7 @@ fi
 success_rate=$(( success_count * 100 / total_tests ))
 
 # 总体评估
-echo
+log ""
 print_info "=== 测试统计 ==="
 print_info "总测试项: $total_tests"
 print_info "成功项: $success_count"
@@ -708,7 +721,7 @@ else
     print_warning "   ⚠ 无法验证幂等性 (无领导者节点)"
 fi
 
-echo
+log ""
 print_success "=== ZooKeeper 集群功能验证完成 ==="
 print_info "详细测试报告已生成，请查看日志文件: $LOG_FILE"
 
@@ -718,3 +731,7 @@ if [ $success_rate -ge 80 ]; then
 else
     exit 1
 fi
+
+# 记录测试结束时间
+log "测试结束时间: $(date)"
+log "测试结果已保存到: $LOG_FILE"

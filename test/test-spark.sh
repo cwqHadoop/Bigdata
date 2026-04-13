@@ -1,8 +1,21 @@
 #!/bin/bash
 
-echo "=== Spark 集群测试 ==="
-echo "测试时间: $(date)"
-echo
+# 日志文件配置
+LOG_DIR="test/test-log"
+LOG_FILE="$LOG_DIR/test-spark-$(date +%Y%m%d-%H%M%S).log"
+
+# 创建日志目录
+mkdir -p "$LOG_DIR"
+
+# 日志函数
+log() {
+    echo "$1" | tee -a "$LOG_FILE"
+}
+
+log "=== Spark 集群测试 ==="
+log "测试开始时间: $(date)"
+log "日志文件: $LOG_FILE"
+log ""
 
 # 读取 Spark 版本号
 ENV_CONF="../config/environment.conf"
