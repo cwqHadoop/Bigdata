@@ -1,17 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+Hadoop Core Site 配置文件
+作用：定义Hadoop核心组件的全局配置参数，这些参数对所有Hadoop组件（HDFS、MapReduce、YARN）都有效
+原理：Hadoop启动时会读取此文件，建立文件系统连接和基础运行环境
+-->
 <configuration>
-    <!-- 指定 NameNode 的地址 -->
+    <!--
+    指定默认文件系统（Default File System）
+    作用：定义Hadoop客户端默认连接的文件系统URI
+    原理：当客户端使用相对路径时，Hadoop会自动在此URI前添加路径
+    示例：hdfs://namenode:8020 表示使用HDFS协议，连接namenode容器的8020端口
+    -->
     <property>
         <name>fs.defaultFS</name>
         <value>hdfs://namenode:8020</value>
     </property>
-    <!-- 指定 Hadoop 运行时产生文件的存储目录 -->
+    
+    <!--
+    Hadoop临时目录配置
+    作用：指定Hadoop运行时产生临时文件的存储位置
+    原理：Hadoop在执行过程中会产生各种临时文件（如中间结果、日志等），此目录用于存储这些文件
+    注意：需要确保此目录有足够的磁盘空间和适当的权限
+    -->
     <property>
         <name>hadoop.tmp.dir</name>
         <value>/opt/hadoop/data</value>
     </property>
-    <!-- 配置 HDFS 网页登录使用的静态用户为 root -->
+    
+    <!--
+    HDFS Web UI静态用户配置
+    作用：定义通过Web界面访问HDFS时使用的默认用户身份
+    原理：HDFS Web界面需要用户身份进行权限验证，此配置指定默认用户
+    安全考虑：在生产环境中应使用更严格的用户权限管理
+    -->
     <property>
         <name>hadoop.http.staticuser.user</name>
         <value>root</value>

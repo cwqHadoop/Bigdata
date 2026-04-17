@@ -1,20 +1,58 @@
 #!/bin/bash
 
-# 设置环境变量
+# ===============================================
+# Hive数据仓库启动脚本
+# 作用：启动Hive Metastore服务和HiveServer2服务
+# 原理：配置Hive环境变量，解决Guava版本冲突，启动Hive服务
+# 重要性：Hive依赖Hadoop和MySQL，需要正确的环境配置
+# ===============================================
+
+# ===============================================
+# 环境变量配置
+# 作用：设置Hive和Hadoop相关的环境变量
+# 原理：Hive需要知道Hadoop的安装位置才能正确访问HDFS
+# 变量说明：
+#   - HIVE_HOME: Hive安装目录
+#   - HADOOP_HOME: Hadoop安装目录
+#   - PATH: 包含Hadoop和Hive的可执行文件路径
+# ===============================================
+
 export HIVE_HOME=/opt/hive
 export HADOOP_HOME=/opt/hadoop
 export HADOOP_PREFIX=/opt/hadoop
 export PATH=$HADOOP_HOME/bin:$HIVE_HOME/bin:$PATH
 
-# 确保环境变量持久化
+# ===============================================
+# 环境变量持久化
+# 作用：将环境变量写入系统文件，确保在子进程中可用
+# 原理：/etc/environment文件在系统启动时自动加载
+# 重要性：确保Hive服务在后台运行时能正确找到依赖库
+# ===============================================
+
 echo "HADOOP_HOME=$HADOOP_HOME" > /etc/environment
 echo "HADOOP_PREFIX=$HADOOP_PREFIX" >> /etc/environment
 echo "HIVE_HOME=$HIVE_HOME" >> /etc/environment
 echo "PATH=$PATH" >> /etc/environment
 
+# ===============================================
+# 服务启动信息
+# 作用：显示Hive服务启动前的环境信息
+# 原理：便于调试和验证环境配置是否正确
+# 输出内容：Hadoop和Hive的安装目录信息
+# ===============================================
+
 echo "Starting Hive services..."
 echo "HADOOP_HOME: $HADOOP_HOME"
 echo "HIVE_HOME: $HIVE_HOME"
+
+# ===============================================
+# Guava版本冲突解决
+# 作用：解决Hive和Hadoop之间Guava库的版本冲突问题
+# 原理：Hive自带的Guava版本与Hadoop不兼容，需要替换
+# 操作步骤：
+#   1. 删除Hive自带的旧版Guava
+#   2. 复制Hadoop中的兼容版Guava到Hive lib目录
+# ===============================================
 
 # 检查并修复Guava版本冲突
 if [ -f /opt/hive/lib/guava-19.0.jar ]; then
@@ -24,8 +62,22 @@ if [ ! -f /opt/hive/lib/guava-27.0-jre.jar ]; then
     cp /opt/hadoop/share/hadoop/common/lib/guava-27.0-jre.jar /opt/hive/lib/
 fi
 
+# ===============================================
+# 配置文件复制
+# 作用：将外部挂载的配置文件复制到Hive配置目录
+# 原理：支持配置热更新，便于调试和配置管理
+# 配置内容：hive-site.xml等Hive核心配置文件
+# ===============================================
+
 # 复制配置文件
 cp -r /config/hive/* $HIVE_HOME/conf/
+
+# ===============================================
+# Hadoop配置目录创建
+# 作用：创建Hadoop配置目录的符号链接
+# 原理：Hive需要访问Hadoop的配置文件才能与HDFS交互
+# 重要性：确保Hive能正确读取Hadoop集群的配置信息
+# ===============================================
 
 # 创建Hadoop配置目录
 mkdir -p /opt/hadoop/etc/hadoop

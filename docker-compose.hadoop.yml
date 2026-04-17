@@ -1,6 +1,29 @@
+# ===============================================
+# Hadoop标准集群Docker Compose配置文件
+# 作用：定义Hadoop标准集群的容器编排和服务配置
+# 原理：使用Docker Compose编排Hadoop NameNode和DataNode服务
+# 版本：Docker Compose 3.8，支持最新的Docker功能
+# ===============================================
+
 version: '3.8'
 
+# ===============================================
+# 服务定义部分
+# 作用：定义Hadoop集群中的各个服务组件
+# 原理：每个服务对应一个Hadoop集群节点
+# 组件说明：NameNode + 2个DataNode的标准集群配置
+# ===============================================
+
 services:
+  # ===============================================
+  # NameNode服务配置
+  # 作用：Hadoop集群的主控节点，负责元数据管理和文件系统管理
+  # 原理：NameNode存储文件系统的命名空间和块映射信息
+  # 端口映射：
+  #   - 9870: HDFS Web UI (19870 -> 9870)
+  #   - 8088: YARN Web UI (18088 -> 8088)
+  #   - 19888: JobHistory Web UI (19888 -> 19888)
+  # ===============================================
   namenode:
     image: bigdata-hadoop:latest
     container_name: namenode
@@ -16,6 +39,13 @@ services:
     networks:
       - bigdata-net
 
+  # ===============================================
+  # DataNode 1服务配置
+  # 作用：Hadoop集群的数据存储节点，负责实际数据块的存储
+  # 原理：DataNode存储文件数据块，并向NameNode报告块状态
+  # 依赖关系：必须等待NameNode启动完成后才能启动
+  # 端口映射：9864 - DataNode数据传输端口
+  # ===============================================
   datanode1:
     image: bigdata-hadoop:latest
     container_name: datanode1
@@ -31,6 +61,12 @@ services:
     networks:
       - bigdata-net
 
+  # ===============================================
+  # DataNode 2服务配置
+  # 作用：Hadoop集群的第二个数据存储节点，提供数据冗余
+  # 原理：多个DataNode提供数据冗余和负载均衡
+  # 端口映射：使用不同的主机端口避免冲突 (19865 -> 9864)
+  # ===============================================
   datanode2:
     image: bigdata-hadoop:latest
     container_name: datanode2
@@ -46,10 +82,27 @@ services:
     networks:
       - bigdata-net
 
+# ===============================================
+# 数据卷定义部分
+# 作用：定义持久化数据卷，确保数据在容器重启后不丢失
+# 原理：每个节点使用独立的数据卷，避免数据冲突
+# 卷说明：
+#   - namenode_data: NameNode元数据存储
+#   - datanode1_data: DataNode 1数据块存储
+#   - datanode2_data: DataNode 2数据块存储
+# ===============================================
+
 volumes:
   namenode_data:
   datanode1_data:
   datanode2_data:
+
+# ===============================================
+# 网络配置部分
+# 作用：定义容器间通信的网络配置
+# 原理：使用外部网络bigdata-net，确保所有组件在同一网络
+# 网络类型：external表示使用预先创建的网络
+# ===============================================
 
 networks:
   bigdata-net:

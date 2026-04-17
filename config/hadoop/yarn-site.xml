@@ -1,22 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+Hadoop YARN Site 配置文件
+作用：配置YARN资源管理框架的参数，包括资源调度、容器管理、任务执行环境等
+原理：YARN组件启动时读取此文件，建立资源管理和任务调度机制
+-->
 <configuration>
-    <!-- 指定 MR 走 shuffle -->
+    <!--
+    NodeManager辅助服务配置
+    作用：定义NodeManager需要启动的辅助服务，特别是MapReduce的shuffle服务
+    原理：MapReduce作业需要shuffle阶段来重新分配中间数据，此服务负责处理数据交换
+    服务类型：mapreduce_shuffle是MapReduce框架专用的shuffle服务实现
+    -->
     <property>
         <name>yarn.nodemanager.aux-services</name>
         <value>mapreduce_shuffle</value>
     </property>
-    <!-- 指定 ResourceManager 的地址 -->
+    
+    <!--
+    ResourceManager主机名配置
+    作用：指定ResourceManager服务运行的主机名或IP地址
+    原理：NodeManager需要知道ResourceManager的位置来注册和汇报资源状态
+    容器网络：在Docker环境中使用容器名"namenode"进行服务发现
+    高可用性：在HA模式下，需要配置多个ResourceManager地址
+    -->
     <property>
         <name>yarn.resourcemanager.hostname</name>
         <value>namenode</value>
     </property>
-    <!-- 环境变量的继承 -->
+    
+    <!--
+    NodeManager环境变量白名单
+    作用：定义可以从NodeManager传递给任务容器的环境变量
+    原理：YARN任务在隔离的容器中运行，需要明确指定可继承的环境变量
+    变量说明：包含Hadoop相关路径和Java环境变量，确保任务能正确执行
+    安全机制：防止恶意环境变量注入，提高系统安全性
+    -->
     <property>
         <name>yarn.nodemanager.env-whitelist</name>
         <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value>
     </property>
-    <!-- 忽略虚拟内存检查 -->
+    
+    <!--
+    虚拟内存检查开关
+    作用：控制是否检查任务的虚拟内存使用量
+    原理：YARN会监控任务的内存使用，如果超过限制会杀死任务
+    实验环境：关闭检查以避免因内存限制导致任务失败
+    生产环境：建议启用检查，确保资源合理使用
+    -->
     <property>
         <name>yarn.nodemanager.vmem-check-enabled</name>
         <value>false</value>

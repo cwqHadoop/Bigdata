@@ -1,31 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+Hadoop MapReduce Site 配置文件
+作用：配置MapReduce计算框架的参数，包括作业调度、历史服务、环境配置等
+原理：MapReduce组件启动时读取此文件，建立作业执行和监控机制
+-->
 <configuration>
-    <!-- 指定 MapReduce 程序运行在 Yarn 上 -->
+    <!--
+    MapReduce框架运行模式配置
+    作用：指定MapReduce作业运行在YARN资源管理框架上
+    原理：YARN提供统一的资源管理和作业调度，取代传统的MapReduce v1
+    可选值：
+      - yarn：使用YARN资源管理器（推荐）
+      - local：本地模式（单机测试）
+      - classic：传统模式（已弃用）
+    -->
     <property>
         <name>mapreduce.framework.name</name>
         <value>yarn</value>
     </property>
-    <!-- 历史服务器端地址 -->
+    
+    <!--
+    JobHistoryServer RPC服务地址
+    作用：指定MapReduce作业历史服务的RPC通信地址
+    原理：客户端通过此地址与JobHistoryServer通信，获取作业历史信息
+    端口说明：10020是JobHistoryServer的标准RPC端口
+    -->
     <property>
         <name>mapreduce.jobhistory.address</name>
         <value>namenode:10020</value>
     </property>
-    <!-- 历史服务器 web 端地址 -->
+    
+    <!--
+    JobHistoryServer Web界面地址
+    作用：指定MapReduce作业历史服务的Web管理界面地址
+    原理：用户可以通过Web界面查看作业执行历史、日志和统计信息
+    端口说明：19888是JobHistoryServer的标准Web UI端口
+    -->
     <property>
         <name>mapreduce.jobhistory.webapp.address</name>
         <value>namenode:19888</value>
     </property>
-    <!-- 环境变量配置 -->
+    
+    <!--
+    MapReduce任务环境变量配置
+    作用：定义MapReduce任务执行时的环境变量
+    原理：YARN在启动任务容器时设置这些环境变量
+    重要性：确保任务容器能正确找到Hadoop相关库和配置文件
+    -->
     <property>
+        <!--
+        Application Master环境变量配置
+        作用：设置MapReduce Application Master容器的环境变量
+        原理：Application Master负责协调Map和Reduce任务的执行
+        -->
         <name>yarn.app.mapreduce.am.env</name>
         <value>HADOOP_MAPRED_HOME=/opt/hadoop</value>
     </property>
     <property>
+        <!--
+        Map任务环境变量配置
+        作用：设置Map任务容器的环境变量
+        原理：Map任务负责数据的分片处理和中间结果生成
+        -->
         <name>mapreduce.map.env</name>
         <value>HADOOP_MAPRED_HOME=/opt/hadoop</value>
     </property>
     <property>
+        <!--
+        Reduce任务环境变量配置
+        作用：设置Reduce任务容器的环境变量
+        原理：Reduce任务负责中间结果的聚合和最终结果输出
+        -->
         <name>mapreduce.reduce.env</name>
         <value>HADOOP_MAPRED_HOME=/opt/hadoop</value>
     </property>

@@ -131,6 +131,7 @@ bash scripts/network.sh
 ## 🚀 快速开始
 
 ### 1. 准备安装包
+确定要使用的Hadoop环境（标准或高可用），各组件的版本号，在 `config/environment.conf` 中配置。
 请将所需的安装包下载并放入 `module/` 目录下，具体文件列表请参考 [config/module-files.md](config/module-files.md)。
 
 **注意：** 建议手动下载安装包，因为自动下载会非常耗时。
@@ -169,6 +170,8 @@ done
 ```
 基础服务层
 ├── MySQL (Hive元数据存储)
+├── Flink (流处理)
+└── Flume (数据采集)
 ├── ZooKeeper (协调服务)
 │   └── Hadoop HA (高可用集群)
 │   └── Kafka (消息队列)
@@ -177,10 +180,6 @@ done
     └── Hive (数据仓库)
     └── Spark (计算引擎)
     └── HBase (NoSQL数据库)
-
-独立服务层
-├── Flink (流处理)
-└── Flume (数据采集)
 ```
 
 ### 推荐启动顺序

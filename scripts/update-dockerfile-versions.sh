@@ -1,18 +1,37 @@
 #!/bin/bash
 
+# ===============================================
+# Dockerfile版本同步脚本
+# 作用：根据环境配置文件自动更新所有Dockerfile中的版本信息
+# 原理：读取environment.conf中的版本配置，同步到对应的Dockerfile
+# 重要性：确保整个平台的组件版本一致性，便于版本管理和升级
+# ===============================================
+
+# 设置严格错误处理模式：任何命令失败立即退出脚本
 set -e
 
 echo "=== 更新 Dockerfile 版本配置 ==="
+echo "此脚本将根据环境配置文件同步所有组件的版本信息"
+echo "=========================================="
+
+# ===============================================
+# 环境配置文件检查
+# 作用：验证环境配置文件是否存在和可读
+# 原理：environment.conf是版本信息的唯一来源
+# 错误处理：如果文件不存在，脚本立即退出
+# ===============================================
 
 # 读取环境配置文件
 ENV_CONF="config/environment.conf"
 if [ ! -f "$ENV_CONF" ]; then
     echo "错误: 环境配置文件 $ENV_CONF 不存在"
+    echo "请确保环境配置文件存在并包含正确的版本信息"
     exit 1
 fi
 
 echo "1. 读取环境配置文件..."
-# 读取版本信息
+# 读取版本信息到环境变量
+# 原理：使用eval执行grep结果，将版本变量导入当前shell环境
 eval $(grep -E '^[A-Z_]+_VERSION=' "$ENV_CONF")
 
 # 显示读取的版本信息
@@ -20,17 +39,31 @@ echo "读取到的版本信息:"
 grep -E '^[A-Z_]+_VERSION=' "$ENV_CONF"
 echo
 
+# ===============================================
+# Dockerfile列表定义
+# 作用：定义需要更新版本的所有Dockerfile文件
+# 原理：脚本将遍历此列表，逐个更新版本信息
+# 扩展性：新增组件时只需在此列表添加对应的Dockerfile
+# ===============================================
+
 # Dockerfile 列表
 DOCKERFILES=(
-    "dockerfile.hadoop"
-    "dockerfile.hive"
-    "dockerfile.spark"
-    "dockerfile.hbase"
-    "dockerfile.zookeeper"
-    "dockerfile.kafka"
-    "dockerfile.flink"
-    "dockerfile.flume"
+    "dockerfile.hadoop"      # Hadoop分布式计算框架
+    "dockerfile.hive"        # Hive数据仓库工具
+    "dockerfile.spark"       # Spark内存计算引擎
+    "dockerfile.hbase"      # HBase分布式数据库
+    "dockerfile.zookeeper"  # ZooKeeper协调服务
+    "dockerfile.kafka"      # Kafka消息队列
+    "dockerfile.flink"      # Flink流处理引擎
+    "dockerfile.flume"      # Flume数据采集工具
 )
+
+# ===============================================
+# 组件下载URL映射配置
+# 作用：定义各组件官方下载地址的URL模板
+# 原理：使用{VERSION}占位符，根据实际版本动态生成下载链接
+# 来源：Apache官方镜像站，确保下载文件的完整性和安全性
+# ===============================================
 
 # 组件下载URL映射
 declare -A DOWNLOAD_URLS=(

@@ -1,11 +1,35 @@
+# ===============================================
+# Kafka Docker镜像构建文件
+# 作用：基于基础镜像构建包含Kafka消息队列服务的容器镜像
+# 原理：使用多阶段构建，将Kafka安装包解压并配置运行环境
+# 版本：Kafka 2.4.1，Scala 2.12，提供稳定的消息队列服务
+# ===============================================
+
+# ===============================================
+# 基础镜像选择
+# 作用：使用预先构建的大数据基础镜像
+# 原理：基础镜像包含Java运行时、SSH服务等必要组件
+# 优势：避免重复安装基础软件包，减小镜像体积
+# ===============================================
 FROM bigdata-base:latest
 
+# ===============================================
+# 环境变量配置阶段
+# 作用：定义Kafka版本、Scala版本和安装路径
+# 原理：环境变量用于构建时和运行时的配置管理
+# 版本兼容性：Kafka 2.4.1与Scala 2.12具有良好的兼容性
+# ===============================================
 ENV KAFKA_VERSION=2.4.1
 ENV SCALA_VERSION=2.12
 ENV KAFKA_HOME=/opt/kafka
 ENV PATH=$KAFKA_HOME/bin:$PATH
 
-
+# ===============================================
+# Kafka安装阶段
+# 作用：安装Kafka软件包并配置运行环境
+# 原理：将本地安装包复制到容器内，解压并设置安装目录
+# 清理：安装完成后删除临时文件和Windows相关文件
+# ===============================================
 COPY module/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz /tmp/
 
 RUN mkdir -p /opt && \
@@ -14,15 +38,40 @@ RUN mkdir -p /opt && \
     mv kafka_${SCALA_VERSION}-${KAFKA_VERSION} kafka && \
     rm -rf /opt/kafka/bin/windows /tmp/*
 
-# Copy custom config files
+# ===============================================
+# 配置文件复制阶段
+# 作用：将自定义配置文件复制到Kafka配置目录
+# 原理：支持多Broker集群配置，每个Broker使用不同的配置文件
+# 配置说明：
+#   - server.properties: Broker 1配置
+#   - server2.properties: Broker 2配置  
+#   - server3.properties: Broker 3配置
+# ===============================================
 COPY config/kafka/server.properties /opt/kafka/config/server.properties
 COPY config/kafka/server2.properties /opt/kafka/config/server2.properties
 COPY config/kafka/server3.properties /opt/kafka/config/server3.properties
 
-# Copy entrypoint script and fix line endings
+# ===============================================
+# 启动脚本配置
+# 作用：配置Kafka服务的启动脚本
+# 原理：将启动脚本复制到容器内，并设置可执行权限
+# 重要性：确保容器启动时可以正确执行启动脚本
+# ===============================================
 COPY scripts/kafka-entrypoint.sh /usr/local/bin/
 RUN  chmod +x /usr/local/bin/kafka-entrypoint.sh
 
+# ===============================================
+# 端口暴露配置
+# 作用：声明Kafka服务需要暴露的端口
+# 原理：9092是Kafka Broker的标准客户端连接端口
+# 端口映射：在Docker Compose中配置实际的主机端口映射
+# ===============================================
 EXPOSE 9092
 
+# ===============================================
+# 入口点配置
+# 作用：定义容器启动时的默认执行命令
+# 原理：ENTRYPOINT指定容器启动时执行的Kafka启动脚本
+# 灵活性：可以在Docker Compose中通过command参数覆盖具体行为
+# ===============================================
 ENTRYPOINT ["/usr/local/bin/kafka-entrypoint.sh"]

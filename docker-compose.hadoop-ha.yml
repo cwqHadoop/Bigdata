@@ -1,6 +1,18 @@
+# Hadoop高可用集群Docker Compose配置文件
+# 作用：定义Hadoop HA集群的容器编排配置，包括服务依赖、网络、存储等
+# 原理：使用Docker Compose管理多容器应用，实现高可用分布式系统
+# 架构：2个NameNode + 3个JournalNode + 2个DataNode的HA架构
+
 version: '3.8'
 
 services:
+  # ===============================================
+  # JournalNode集群配置（3节点）
+  # 作用：存储HDFS的编辑日志，实现NameNode之间的数据同步
+  # 原理：JournalNode形成仲裁集群，确保编辑日志的一致性
+  # 要求：至少3个节点，确保在节点故障时仍能形成多数派
+  # ===============================================
+  
   journalnode1:
     image: bigdata-hadoop:latest
     container_name: journalnode1
@@ -8,7 +20,9 @@ services:
     entrypoint: ["hadoop-ha-entrypoint.sh"]
     command: ["journalnode"]
     volumes:
+      # 配置卷：将本地HA配置文件挂载到容器内
       - ./config/hadoop-ha:/config/hadoop-ha
+      # 数据卷：JournalNode数据持久化存储
       - jn1_data:/opt/hadoop/data
     networks:
       - bigdata-net
@@ -37,6 +51,13 @@ services:
     networks:
       - bigdata-net
 
+  # ===============================================
+  # NameNode配置（主备模式）
+  # 作用：HDFS的元数据管理节点，一个Active一个Standby
+  # 原理：通过ZKFC实现自动故障转移，确保服务高可用
+  # 端口映射：将容器内部端口映射到主机端口，便于外部访问
+  # ===============================================
+  
   namenode1:
     image: bigdata-hadoop:latest
     container_name: namenode1
@@ -44,13 +65,15 @@ services:
     entrypoint: ["hadoop-ha-entrypoint.sh"]
     command: ["namenode1"]
     depends_on:
+      # 依赖关系：NameNode1需要在JournalNode集群启动后启动
       - journalnode1
       - journalnode2
       - journalnode3
     ports:
-      - "19870:9870"
-      - "18088:8088"
-      - "19888:19888"
+      # 端口映射：容器端口 -> 主机端口
+      - "19870:9870"  # NameNode Web UI端口
+      - "18088:8088"  # ResourceManager Web UI端口
+      - "19888:19888" # JobHistoryServer端口
     volumes:
       - ./config/hadoop-ha:/config/hadoop-ha
       - nn1_data:/opt/hadoop/data
@@ -64,16 +87,24 @@ services:
     entrypoint: ["hadoop-ha-entrypoint.sh"]
     command: ["namenode2"]
     depends_on:
+      # 依赖关系：NameNode2需要在NameNode1启动后启动，用于同步元数据
       - namenode1
     ports:
-      - "29870:9870"
-      - "28088:8088"
+      - "29870:9870"  # Standby NameNode Web UI端口
+      - "28088:8088"  # Standby ResourceManager Web UI端口
     volumes:
       - ./config/hadoop-ha:/config/hadoop-ha
       - nn2_data:/opt/hadoop/data
     networks:
       - bigdata-net
 
+  # ===============================================
+  # DataNode配置（数据存储节点）
+  # 作用：存储HDFS的实际数据块，提供数据读写服务
+  # 原理：DataNode向Active NameNode注册，接收数据块存储指令
+  # 端口映射：DataNode服务端口，用于数据传输和状态监控
+  # ===============================================
+  
   datanode1:
     image: bigdata-hadoop:latest
     container_name: datanode1
@@ -81,10 +112,11 @@ services:
     entrypoint: ["hadoop-ha-entrypoint.sh"]
     command: ["datanode"]
     depends_on:
+      # 依赖关系：DataNode需要在NameNode启动后启动，用于注册服务
       - namenode1
       - namenode2
     ports:
-      - "19864:9864"
+      - "19864:9864"  # DataNode IPC端口映射
     volumes:
       - ./config/hadoop-ha:/config/hadoop-ha
       - dn1_data:/opt/hadoop/data
@@ -101,22 +133,36 @@ services:
       - namenode1
       - namenode2
     ports:
-      - "19865:9864"
+      - "19865:9864"  # DataNode IPC端口映射（不同主机端口）
     volumes:
       - ./config/hadoop-ha:/config/hadoop-ha
       - dn2_data:/opt/hadoop/data
     networks:
       - bigdata-net
 
+# ===============================================
+# 数据卷配置
+# 作用：定义持久化存储卷，确保容器重启后数据不丢失
+# 原理：Docker卷提供数据持久化，与容器生命周期解耦
+# 注意：每个服务使用独立的卷，避免数据冲突
+# ===============================================
+
 volumes:
-  jn1_data:
-  jn2_data:
-  jn3_data:
-  nn1_data:
-  nn2_data:
-  dn1_data:
-  dn2_data:
+  jn1_data:  # JournalNode1数据卷
+  jn2_data:  # JournalNode2数据卷
+  jn3_data:  # JournalNode3数据卷
+  nn1_data:  # NameNode1元数据卷
+  nn2_data:  # NameNode2元数据卷
+  dn1_data:  # DataNode1数据块卷
+  dn2_data:  # DataNode2数据块卷
+
+# ===============================================
+# 网络配置
+# 作用：定义容器网络，确保集群内部通信
+# 原理：使用外部网络，便于其他组件（如ZooKeeper）加入集群
+# 网络模式：桥接网络，容器间通过容器名进行服务发现
+# ===============================================
 
 networks:
   bigdata-net:
-    external: true
+    external: true  # 使用预先创建的外部网络

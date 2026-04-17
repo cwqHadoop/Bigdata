@@ -1,23 +1,45 @@
 #!/bin/bash
 
-# 日志文件配置
+# ===============================================
+# Hadoop高可用集群测试脚本
+# 作用：全面测试Hadoop HA集群的各项功能，包括高可用性、数据一致性、故障转移等
+# 原理：通过Docker命令与容器交互，验证集群组件的状态和功能
+# 测试范围：容器状态、HA功能、HDFS操作、故障转移、YARN资源管理、MapReduce作业
+# ===============================================
+
+# ===============================================
+# 日志配置
+# 作用：记录测试过程和结果，便于问题排查和结果分析
+# 原理：同时输出到终端和日志文件，确保测试过程可追溯
+# ===============================================
+
+# 日志文件配置：在test-log目录下创建带时间戳的日志文件
 LOG_DIR="test/test-log"
 LOG_FILE="$LOG_DIR/test-hadoop-ha-$(date +%Y%m%d-%H%M%S).log"
 
-# 创建日志目录
+# 创建日志目录（如果不存在）
 mkdir -p "$LOG_DIR"
 
-# 日志函数
+# 日志函数：同时输出到终端和日志文件
 log() {
     echo "$1" | tee -a "$LOG_FILE"
 }
 
+# ===============================================
+# 测试开始
+# ===============================================
 
 log "=== Hadoop HA 高可用集群测试 ==="
 log "测试时间: $(date)"
 log ""
 
-# 读取 Hadoop 版本号
+# ===============================================
+# 环境配置检查
+# 作用：读取Hadoop版本信息，确保测试环境与配置一致
+# 原理：从环境配置文件读取版本号，用于后续的MapReduce作业测试
+# ===============================================
+
+# 读取Hadoop版本号配置
 ENV_CONF="../config/environment.conf"
 if [ -f "$ENV_CONF" ]; then
     HADOOP_VERSION=$(grep "^HADOOP_VERSION=" "$ENV_CONF" | cut -d'=' -f2)
@@ -28,14 +50,26 @@ else
 fi
 log ""
 
-# 检查 Hadoop HA 容器状态
+# ===============================================
+# 测试阶段1：容器状态检查
+# 作用：验证Hadoop HA集群的所有容器是否正常运行
+# 原理：使用docker ps命令检查容器状态，确保基础服务可用
+# ===============================================
+
 log "1. 检查 Hadoop HA 容器状态..."
 docker ps | grep -E "namenode|datanode|journalnode" | tee -a "$LOG_FILE"
 log ""
 
-# 测试 JournalNode 状态
+# ===============================================
+# 测试阶段2：JournalNode集群状态检查
+# 作用：验证JournalNode集群的健康状态，确保编辑日志服务正常
+# 原理：检查每个JournalNode容器是否有JournalNode进程运行
+# 重要性：JournalNode是HA集群的核心组件，负责NameNode数据同步
+# ===============================================
+
 log "2. 测试 JournalNode 集群状态..."
 for i in 1 2 3; do
+    # 检查JournalNode进程状态
     jn_status=$(docker exec journalnode$i jps 2>/dev/null | grep JournalNode | wc -l) | tee -a "$LOG_FILE"
     if [ "$jn_status" -eq 1 ]; then
         echo "✓ JournalNode$i 正常运行"
