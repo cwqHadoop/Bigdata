@@ -66,20 +66,20 @@ elif [ "$ROLE" = "datanode" ]; then
     # 等待 NameNode 启动
     sleep 30
     
-    # 显式设置环境变量以修复 MapReduce AM 启动失败的问题
+    # 设置必要的环境变量以修复 MapReduce AM 启动失败的问题
+    # 注意：HADOOP_HOME、HADOOP_CONF_DIR 已在Dockerfile中设置，这里只设置缺失的变量
     echo "export HADOOP_MAPRED_HOME=/opt/hadoop" >> /etc/profile
-    echo "export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop" >> /etc/profile
     echo "export YARN_CONF_DIR=/opt/hadoop/etc/hadoop" >> /etc/profile
     echo "export HADOOP_CLASSPATH=\$($HADOOP_HOME/bin/hadoop classpath)" >> /etc/profile
     source /etc/profile
     
+    # 配置Hadoop环境文件
     echo "export HADOOP_MAPRED_HOME=/opt/hadoop" >> $HADOOP_CONF_DIR/hadoop-env.sh
-    echo "export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop" >> $HADOOP_CONF_DIR/hadoop-env.sh
     echo "export YARN_CONF_DIR=/opt/hadoop/etc/hadoop" >> $HADOOP_CONF_DIR/hadoop-env.sh
     echo "export HADOOP_CLASSPATH=\$($HADOOP_HOME/bin/hadoop classpath)" >> $HADOOP_CONF_DIR/hadoop-env.sh
     
+    # 配置YARN环境文件
     echo "export HADOOP_MAPRED_HOME=/opt/hadoop" >> $HADOOP_CONF_DIR/yarn-env.sh
-    echo "export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop" >> $HADOOP_CONF_DIR/yarn-env.sh
     echo "export YARN_CONF_DIR=/opt/hadoop/etc/hadoop" >> $HADOOP_CONF_DIR/yarn-env.sh
     echo "export HADOOP_CLASSPATH=\$($HADOOP_HOME/bin/hadoop classpath)" >> $HADOOP_CONF_DIR/yarn-env.sh
     
