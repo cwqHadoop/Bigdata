@@ -1,36 +1,119 @@
-企业级的微服务架构（一个组件一个容器）不仅极度消耗内存，而且会让初学者迷失在错综复杂的网络端口和依赖关系中。
+# 大数据 5 节点全栈集群架构蓝图 (Standalone 极限版)
 
-从教学的角度来看，将架构从“按组件拆分”转变为**“按物理角色合并”**（模拟传统虚拟机的部署方式），不仅能大幅压缩内存开销（控制在 10GB-12GB 左右，适合 16GB 内存的学生机），而且更符合企业早期集群的经典物理拓扑，非常有利于学生理解 Master-Slave（主从）架构的核心思想。
+> **设计目标**: 在 16GB 物理内存环境下，通过物理角色合并与极致内存压榨，实现 Hadoop, Hive, HBase, Zookeeper, Kafka, Flume, Spark (Standalone) 和 Flink (Standalone) 的全栈部署。
 
-设计了一套 “1主 + 3从 + 1辅助”的 5 节点经典教学架构：
+***
 
-🏗️ 5 节点高密度教学架构设计
-这套架构放弃了为每个进程单独开容器的做法，而是把容器当做“轻量级虚拟机”来用，将功能相近的 JVM 进程打包放到同一个容器中运行。
+## 一、 节点角色与服务分配矩阵
 
-# 大数据平台节点规划表
+此架构将 9 大组件根据功能逻辑合并为 5 个物理节点，模拟真实的 Master-Slave 拓扑。
 
-| 节点名称 (Container) | 扮演角色 | 内部运行的服务 (JVM 进程) | 内存建议 (JVM Heap) | 设计意图与教学考量 |
-|-------------------|----------|--------------------------|---------------------|-------------------|
-| master | 全局主节点(Control Plane) | 1. HDFS NameNode<br>2. YARN ResourceManager<br>3. HBase HMaster<br>4. Hive Metastore<br>5. Hive Server2 | 总计约 3.5GB<br>(NN:512M, RM:512M, HM:512M, HMS:512M, HS2:1G) | 大脑集中地。所有的元数据和调度决策都在这里发生。学生排查单点故障（SPOF）时只需盯着这个节点。 |
-| worker-1 | 数据计算节点(Data Plane) | 1. HDFS DataNode<br>2. YARN NodeManager<br>3. HBase RegionServer<br>4. Zookeeper (节点1) | 总计约 2.5GB<br>(DN:512M, NM:512M, RS:1G, ZK:256M) | 干活的苦力。存储真实数据并执行计算任务。 |
-| worker-2 | 数据计算节点(Data Plane) | 同上 (包含 Zookeeper 节点2) | 同上 | 分布式体现。3 个 Worker 节点可以完美演示 HDFS 默认的 3 副本机制。 |
-| worker-3 | 数据计算节点(Data Plane) | 同上 (包含 Zookeeper 节点3) | 同上 | 选举机制演示。把 ZK 分布在 3 个 Worker 上，刚好构成一个最小的高可用仲裁集群（Quorum），非常适合教学 ZK 选举。 |
-| infra | 辅助与网关节点(Infra & Gateway) | 1. MySQL (存储 Hive 元数据)<br>2. 各种客户端 CLI (Beeline, HBase Shell, Hadoop CLI) | 总计约 1GB<br>(MySQL自己管理内存) | 隔离非 Java 服务。MySQL 非常容易和 Java 抢夺系统内存，单独拿出来能提升整体稳定性。同时作为学生敲命令的"跳板机"。 |
+| 节点名称 (Hostname) | 物理角色           | 运行服务 (JVM Processes)                                                                                                                                | 建议堆内存 (JVM Heap)                      |
+| :-------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
+| **master**      | **管理主节点**      | 1. NameNode (HDFS)2. ResourceManager (YARN)3. HMaster (HBase)4. Hive Metastore5. Hive Server26. Spark Master7. Flink JobManager                     | **4.0 GB**(512M*4 + 1G + 512M*2)      |
+| **worker-1**    | **计算/存储从节点 1** | 1. DataNode (HDFS)2. NodeManager (YARN)3. RegionServer (HBase)4. Zookeeper (Quorum 1)5. Kafka Broker (1)6. Spark Worker (1)7. Flink TaskManager (1) | **3.5 GB**(256M+512M+1G+128M+512M\*3) |
+| **worker-2**    | **计算/存储从节点 2** | 同上                                                                                                                                                  | **3.5 GB**                            |
+| **worker-3**    | **计算/存储从节点 3** | 同上                                                                                                                                                  | **3.5 GB**                            |
+| **infra**       | **网关/辅助节点**    | 1. MySQL (MetaDB)2. Flume Agent3. CLI Clients (Shells/Submitters)                                                                                   | **1.0 GB**(MySQL+256M+Buffer)         |
 
-## 表格说明
+**总计预估堆内存占用**: \~15.5 GB (已接近 16GB 物理上限，需开启 Swap)
 
-### 节点角色分布
-- **master节点**: 控制平面，负责元数据管理和调度决策
-- **worker节点**: 数据平面，负责数据存储和计算任务执行
-- **infra节点**: 基础设施和网关，提供数据库和客户端工具
+***
 
-### 内存分配策略
-- **master节点**: 3.5GB总内存，合理分配各服务内存需求
-- **worker节点**: 2.5GB总内存，平衡存储和计算资源
-- **infra节点**: 1GB总内存，专注于数据库服务
+## 二、 极限内存调优参数 (保命配置)
 
-### 教学价值
-- **单点故障演示**: master节点集中管理便于故障排查教学
-- **分布式原理**: 3个worker节点完美展示HDFS副本机制
-- **选举机制**: Zookeeper分布演示分布式协调服务原理
-- **资源隔离**: infra节点隔离非Java服务提升稳定性
+为了防止进程因 OOM 被内核杀掉，必须在各组件配置文件中强制锁定以下最大内存：
+
+### 1. 存储层 (Hadoop/ZK)
+
+- **NameNode**: `HADOOP_HEAPSIZE=512`
+- **DataNode**: `HADOOP_HEAPSIZE=256`
+- **Zookeeper**: `SERVER_JVMFLAGS="-Xmx128m"`
+
+### 2. 计算/调度层 (YARN/Spark/Flink)
+
+- **ResourceManager**: `YARN_RESOURCEMANAGER_HEAPSIZE=512`
+- **NodeManager**: `YARN_NODEMANAGER_HEAPSIZE=512`
+- **Spark Master**: `SPARK_MASTER_MEMORY=512m`
+- **Spark Worker**: `SPARK_WORKER_MEMORY=512m` (单个容器内所有 Executor 共享)
+- **Flink JobManager**: `jobmanager.memory.process.size: 512m`
+- **Flink TaskManager**: `taskmanager.memory.process.size: 512m`
+
+### 3. 数据层 (Hive/HBase/Kafka)
+
+- **HiveServer2**: `HADOOP_HEAPSIZE=1024`
+- **HMaster**: `HBASE_MASTER_OPTS="-Xmx512m"`
+- **RegionServer**: `HBASE_REGIONSERVER_OPTS="-Xmx1024m"`
+- **Kafka Broker**: `KAFKA_HEAP_OPTS="-Xmx512m -Xms512m"`
+
+***
+
+## 三、 教学实战与运维建议
+
+### 1. 启动顺序 (启动链)
+
+由于组件依赖较多，建议引导学生编写分级启动脚本：
+
+1. **基础层**: Zookeeper -> HDFS
+2. **调度层**: YARN -> Spark Master -> Flink JobManager
+3. **数据层**: Kafka -> HBase -> Hive Metastore -> HiveServer2
+4. **接入层**: Flume
+
+### 2. Standalone 模式教学重点
+
+- **资源隔离**: 演示 Spark Worker 和 Flink TaskManager 启动后，在没有任务执行时依然占用的静态内存空间。
+- **UI 监控**:
+  - Master:8080 (Spark Master)
+  - Master:8081 (Flink Dashboard)
+  - Master:9870 (HDFS)
+- **提交模式**: 强调 `--deploy-mode cluster`（Spark）如何将计算压力分散到 worker，而不是压垮 infra 节点。
+
+### 3. 内存动态管理
+
+如果学生机器内存确实告急，建议采取“场景化启动”：
+
+- **场景 A (离线流)**: HDFS + YARN + Hive + HBase。
+- **场景 B (实时流)**: HDFS + Kafka + Flink Standalone。
+- **场景 C (批处理)**: HDFS + Spark Standalone。
+
+# 大数据 5 节点全栈集群改造计划 (Todo List)
+
+> **目标**: 将现有的“单组件单容器”架构，重构为“按物理角色合并”的 5 节点高密度教学架构。
+> **资源限制**: 宿主机物理内存严格控制在 16GB 以内。
+
+## 阶段一：基础镜像准备 (Base Image)
+
+- [ ] **重写 Dockerfile**: 构建一个包含所有大数据组件安装包的统一“巨石镜像”。
+  - [ ] 解压并配置 Hadoop, Zookeeper, Hive, HBase, Kafka, Flume, Spark, Flink。
+  - [ ] 配置全局环境变量 (JAVA\_HOME, HADOOP\_HOME等) 到 `/etc/profile`。
+- [ ] **引入进程管理工具**: 在镜像中安装并配置 `Supervisor`，以便单个容器守护多个 Java 进程。
+
+## 阶段二：节点分配与 docker-compose.yml 编写
+
+- [ ] **配置** **`master`** **节点**: 设定主机名并映射各组件 WebUI 端口。
+- [ ] **配置** **`worker-1/2/3`** **节点**: 挂载 HDFS、ZK 和 Kafka 的持久化数据卷。
+- [ ] **配置** **`infra`** **节点**: 准备 MySQL 服务及 Flume Agent。
+
+## 阶段三：极限内存调优 (核心保命配置)
+
+- [ ] **Hadoop**: NN(512m), RM(512m), DN(256m), NM(512m)。
+- [ ] **HBase**: HM(512m), RS(1g)。
+- [ ] **Zookeeper**: 设置 `SERVER_JVMFLAGS="-Xmx128m"`。
+- [ ] **Kafka**: 修改 `KAFKA_HEAP_OPTS` 为 `512m`。
+- [ ] **Hive**: HMS(512m), HS2(1g)。
+- [ ] **Spark**: Master(512m), Worker(512m)。
+- [ ] **Flink**: JM(512m), TM(512m)。
+
+## 阶段四：编写场景化启动脚本
+
+- [ ] **离线数仓模式 (`start-dw.sh`)**: 启动 Hadoop + ZK + Hive + HBase。
+- [ ] **实时流计算模式 (`start-streaming.sh`)**: 启动 Hadoop + ZK + Kafka + Flume + Flink Standalone。
+- [ ] **内存计算模式 (`start-spark.sh`)**: 启动 Hadoop + Spark Standalone。
+
+## 阶段五：系统级配置与验证
+
+- [ ] **配置 WSL**: 确保 `.wslconfig` 分配了至少 12GB+ 内存。
+- [ ] **验证连通性**: 执行 `hdfs dfs -ls` 及简单的 Spark/Flink 任务提交。
+
+***
+
