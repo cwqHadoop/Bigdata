@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- ===============================================
+Hadoop Worker节点核心配置文件
+作用：定义Worker节点与Master节点的连接配置
+原理：配置DataNode和NodeManager的基础参数
+节点类型：worker-1/2/3节点专用配置
+=============================================== -->
+
+<configuration>
+    <!-- HDFS默认文件系统配置 -->
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://master:9000</value>
+        <description>HDFS默认文件系统URI，指向master节点的NameNode</description>
+    </property>
+
+    <!-- Hadoop临时目录配置 -->
+    <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/opt/hadoop/data/tmp</value>
+        <description>Hadoop临时文件目录</description>
+    </property>
+
+    <!-- 内存优化配置 -->
+    <property>
+        <name>hadoop.heap.size</name>
+        <value>256</value>
+        <description>DataNode堆内存大小(256MB)</description>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.address</name>
+        <value>master:8032</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.scheduler.address</name>
+        <value>master:8030</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.resource-tracker.address</name>
+        <value>master:8031</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.admin.address</name>
+        <value>master:8033</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.webapp.address</name>
+        <value>master:8088</value>
+    </property>
+</configuration>

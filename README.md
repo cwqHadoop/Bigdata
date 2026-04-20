@@ -8,423 +8,708 @@
 
 所有组件均已实现并通过功能测试验证，可作为完整的大数据实验平台使用。
 
-## 📊 组件状态概览
+## 📋 快速开始
 
-| 组件 | 状态 | 测试结果 | 说明 |
-|------|------|----------|------|
-| **Hadoop集群** | ✅ 正常 | 标准+高可用配置测试通过 | 支持HDFS和YARN |
-| **Hive数据仓库** | ✅ 正常 | SQL查询功能测试通过 | 基于MySQL元数据库 |
-| **Spark计算引擎** | ✅ 正常 | 批处理任务测试通过 | Standalone模式 |
-| **Flink流处理** | ✅ 正常 | 集群状态测试通过 | 支持实时数据处理 |
-| **Kafka消息队列** | ✅ 正常 | 消息传输测试通过 | 3节点集群 |
-| **Flume数据采集** | ✅ 正常 | Kafka数据传输测试通过 | 仅支持Kafka输出 |
-| **ZooKeeper协调** | ✅ 正常 | 集群协调测试通过 | 3节点高可用 |
-| **HBase数据库** | ✅ 正常 | 数据库操作测试通过 | NoSQL数据库 |
+### 环境要求
+- **操作系统**: Windows 10/11 with WSL2 (Ubuntu 20.04+)
+- **Docker**: 20.10+
+- **Docker Compose**: 2.0+
+- **内存**: 建议 16GB+ (最低 8GB)
+- **存储**: 建议 50GB+ 可用空间
 
-## 🏗️ 核心架构设计
+### 架构选择
 
-1. **镜像体积最小化**：所有组件镜像均基于一个轻量级的 `bigdata-base` 基础镜像构建，该基础镜像仅包含 OpenJDK 8、SSH 服务及必要的网络工具。
-2. **配置文件分离**：所有组件的配置文件均通过外部 volume 挂载，存放在宿主机 `/config` 目录下，实现配置与镜像解耦。
-3. **模块化启动**：针对不同集群提供独立的 `docker-compose-<cluster>.yml` 文件，支持按需启动。
-4. **幂等性操作**：所有的运维脚本均设计为幂等，多次执行不会导致系统错误。
-5. **完整测试体系**：每个组件都有对应的功能测试脚本，确保系统可靠性。
+本项目支持两种部署架构，满足不同使用场景：
 
-## 📁 目录结构说明
+#### 架构一：单组件独立集群（推荐学习/开发）
+**特点**：每个大数据组件运行在独立的容器集群中，便于单独学习和调试。
 
-```text
-/
-├── config/             # 所有集群的配置文件（按集群子目录划分）
-│   ├── environment.conf # 环境配置和版本管理文件
-│   ├── module-files.md # module目录文件列表记录
-│   └── [cluster]/      # 各集群配置文件
-├── module/             # 存放安装包（通过.gitignore排除）
-├── scripts/            # 运维脚本和启动脚本
-│   ├── update-dockerfile-versions.sh # 版本同步脚本
-│   ├── network.sh      # 网络管理脚本
-│   └── [component]-entrypoint.sh # 各组件启动脚本
-├── test/               # 各组件健康检查与功能测试脚本
-│   ├── test-*.sh       # 测试脚本
-│   └── test-*.md       # 测试说明文档
-├── dockerfile.base     # 基础镜像构建文件
-├── dockerfile.<name>   # 各组件镜像构建文件
-├── docker-compose.<name>.yml # 各集群的编排文件
-└── README.md           # 项目说明文档
-```
+| 组件 | 容器数量 | 服务 | 容器主机名 | 说明 |
+|------|---------|------|------------|------|
+| **Hadoop** | 3个 | NameNode + 2 DataNode + ResourceManager + 2 NodeManager | `hadoop-namenode-1`, `hadoop-datanode-1`, `hadoop-datanode-2` | 标准或高可用配置 |
+| **ZooKeeper** | 3个 | 3节点高可用集群 | `zookeeper-1`, `zookeeper-2`, `zookeeper-3` | 协调服务 |
+| **HBase** | 3个 | HMaster + 2 RegionServer | `hbase-master-1`, `hbase-regionserver-1`, `hbase-regionserver-2` | NoSQL数据库 |
+| **Hive** | 2个 | Metastore + HiveServer2 | `hive-metastore-1`, `hive-server2-1` | 数据仓库 |
+| **Kafka** | 3个 | 3 Broker 集群 | `kafka-broker-1`, `kafka-broker-2`, `kafka-broker-3` | 消息队列 |
+| **Spark** | 3个 | Master + 2 Worker | `spark-master-1`, `spark-worker-1`, `spark-worker-2` | 计算引擎 |
+| **Flink** | 3个 | JobManager + 2 TaskManager | `flink-jobmanager-1`, `flink-taskmanager-1`, `flink-taskmanager-2` | 流处理 |
+| **Flume** | 1个 | Agent | `flume-agent-1` | 数据采集 |
+| **MySQL** | 1个 | 数据库服务器 | `mysql-server-1` | Hive元数据存储 |
 
-## 🔧 关键组件说明
+**总容器数**：约 20个容器  
+**适用场景**：组件学习、独立调试、开发测试
 
-### 环境配置文件 (`config/environment.conf`)
-这是项目的核心配置文件，用于统一管理所有组件的版本信息和环境设置：
+#### 架构二：5节点全栈集群（推荐生产/集成）
+**特点**：采用统一镜像，5个容器承载全部大数据组件，资源利用率高，适合集成测试。
 
+| 节点 | 角色 | 运行服务 | 内存 |
+|------|------|---------|------|
+| **master** | 管理主节点 | NameNode, ResourceManager, HMaster, Hive Metastore, HiveServer2, Spark Master, Flink JobManager | 4.0 GB |
+| **worker-1** | 计算从节点 | DataNode, NodeManager, RegionServer, ZooKeeper, Kafka Broker, Spark Worker, Flink TaskManager | 3.5 GB |
+| **worker-2** | 计算从节点 | DataNode, NodeManager, RegionServer, ZooKeeper, Kafka Broker, Spark Worker, Flink TaskManager | 3.5 GB |
+| **worker-3** | 计算从节点 | DataNode, NodeManager, RegionServer, ZooKeeper, Kafka Broker, Spark Worker, Flink TaskManager | 3.5 GB |
+| **infra** | 基础设施节点 | MySQL, Flume Agent | 1.0 GB |
+
+**总容器数**：5个容器  
+**适用场景**：集成测试、生产模拟、性能优化
+
+## 🚀 架构一：单组件独立集群部署
+
+### 1. 环境准备
 ```bash
-# 大数据平台环境配置
-HADOOP_ENVIRONMENT=standard  # 可选: "ha" 或 "standard"
-CLUSTER_NETWORK=bigdata-net  # 集群网络名称
+# 创建Docker网络（所有组件共享同一网络）
+./scripts/network.sh create
 
-# 组件版本信息（统一管理）
-HADOOP_VERSION=3.1.3
-SPARK_VERSION=3.1.1
-ZOOKEEPER_VERSION=3.6.3
-HBASE_VERSION=2.2.3
-HIVE_VERSION=3.1.2
-FLINK_VERSION=1.14.0
-FLUME_VERSION=1.9.0
-KAFKA_VERSION=2.4.1
+# 同步组件版本信息
+./scripts/update-dockerfile-versions.sh
 ```
 
-**作用：**
-- ✅ **版本统一管理** - 所有组件版本集中配置
-- ✅ **环境切换** - 支持标准和高可用Hadoop环境切换
-- ✅ **网络配置** - 统一管理容器网络
-- ✅ **配置一致性** - 确保所有组件使用相同版本
-
-### 版本同步脚本 (`scripts/update-dockerfile-versions.sh`)
-自动化版本管理脚本，确保Dockerfile与配置文件版本一致：
-
-**功能：**
-- 🔄 **版本同步** - 自动更新所有Dockerfile中的版本号
-- 📥 **依赖下载** - 自动下载缺失的组件安装包
-- ✅ **一致性检查** - 验证版本配置一致性
-- 🌐 **网络检测** - 智能检测网络可用性
-
-**使用方式：**
+### 2. 构建镜像（可选）
 ```bash
-# 运行版本同步脚本
-bash scripts/update-dockerfile-versions.sh
+# 构建基础镜像（所有组件的基础）
+docker build -f dockerfile.base -t bigdata-base:latest .
+
+# 单独构建特定组件镜像
+docker build -f dockerfile.hadoop -t bigdata-hadoop:latest .
+docker build -f dockerfile.hbase -t bigdata-hbase:latest .
+docker build -f dockerfile.hive -t bigdata-hive:latest .
+docker build -f dockerfile.zookeeper -t bigdata-zookeeper:latest .
+docker build -f dockerfile.kafka -t bigdata-kafka:latest .
+docker build -f dockerfile.spark -t bigdata-spark:latest .
+docker build -f dockerfile.flink -t bigdata-flink:latest .
+docker build -f dockerfile.flume -t bigdata-flume:latest .
+docker build -f dockerfile.mysql -t bigdata-mysql:latest .
 ```
 
-### 网络管理脚本 (`scripts/network.sh`)
-Docker网络管理脚本，创建和管理集群共享网络：
-
-**功能：**
-- 🌐 **网络创建** - 创建大数据平台专用网络
-- 🔍 **网络检查** - 检查网络是否存在
-- 📊 **网络信息** - 显示网络配置信息
-- 🔧 **幂等操作** - 支持重复执行
-
-**使用方式：**
+### 3. 启动集群
 ```bash
-# 创建或检查网络
-bash scripts/network.sh
+# 创建大数据平台专用网络
+
+
+# 按依赖顺序启动组件（启动命令见下方表格）
+# 依赖顺序：ZooKeeper → Hadoop → MySQL → HBase → Hive → Kafka → Spark → Flink → Flume
 ```
 
-## 🔧 包含的集群组件
+### 4. 服务访问地址和启动命令
 
-### 基础服务
-- **基础镜像**：基于 `ubuntu:focal-slim`，包含 JDK 8 和 SSH 服务
-- **MySQL数据库**：Hive元数据存储
-- **ZooKeeper集群**：3节点高可用协调服务
+| 组件 | Web UI | 端口 | 启动命令 | 依赖关系 |
+|------|--------|------|----------|----------|
+| **ZooKeeper** | - | 2181 | `docker-compose -f docker-compose.zookeeper.yml up -d` | 无依赖 |
+| **Hadoop HDFS** | http://localhost:9870 | 9870 | `docker-compose -f docker-compose.hadoop.yml up -d` | 依赖ZooKeeper |
+| **Hadoop YARN** | http://localhost:8088 | 8088 | `docker-compose -f docker-compose.hadoop.yml up -d` | 依赖HDFS |
+| **MySQL** | - | 3306 | `docker-compose -f docker-compose.mysql.yml up -d` | 无依赖 |
+| **HBase** | http://localhost:16010 | 16010 | `docker-compose -f docker-compose.hbase.yml up -d` | 依赖HDFS+ZooKeeper |
+| **Hive** | http://localhost:10002 | 10002 | `docker-compose -f docker-compose.hive.yml up -d` | 依赖HDFS+MySQL |
+| **Kafka** | - | 9092 | `docker-compose -f docker-compose.kafka.yml up -d` | 依赖ZooKeeper |
+| **Spark** | http://localhost:8080 | 8080 | `docker-compose -f docker-compose.spark.yml up -d` | 依赖HDFS |
+| **Flink** | http://localhost:8081 | 8081 | `docker-compose -f docker-compose.flink.yml up -d` | 依赖HDFS |
+| **Flume** | - | - | `docker-compose -f docker-compose.flume.yml up -d` | 依赖Kafka |
 
-### 存储与计算
-- **Hadoop集群**：标准配置（1NN+2DN）和高可用配置（2NN+2DN+3JN）
-- **HBase数据库**：分布式NoSQL数据库
-- **Hive数据仓库**：基于Hadoop的SQL查询引擎
-
-### 计算引擎
-- **Spark集群**：Standalone模式，支持批处理和机器学习
-- **Flink集群**：流处理引擎，支持实时数据处理
-
-### 数据管道
-- **Kafka集群**：3节点消息队列
-- **Flume采集**：数据采集工具，输出到Kafka
-
-## 🚀 快速开始
-
-### 1. 准备安装包
-确定要使用的Hadoop环境（标准或高可用），各组件的版本号，在 `config/environment.conf` 中配置。
-请将所需的安装包下载并放入 `module/` 目录下，具体文件列表请参考 [config/module-files.md](config/module-files.md)。
-
-**注意：** 建议手动下载安装包，因为自动下载会非常耗时。
-
-### 2. 环境准备
+### 5. 功能测试
 ```bash
-# 创建集群网络
-bash scripts/network.sh
+# 单独测试各组件
+./test/test-hadoop.sh        # Hadoop功能测试
+./test/test-hbase.sh         # HBase功能测试
+./test/test-hive.sh          # Hive功能测试
+./test/test-zookeeper.sh     # ZooKeeper功能测试
+./test/test-kafka.sh         # Kafka功能测试
+./test/test-spark.sh         # Spark功能测试
+./test/test-flink.sh         # Flink功能测试
+./test/test-flume.sh         # Flume功能测试
 
-# 同步版本配置（可选，如果已手动下载安装包）
-bash scripts/update-dockerfile-versions.sh
+# 测试Flume与Kafka联动
+./test/test-flume-kafka.sh
+
+# 测试Hadoop高可用模式
+./test/test-hadoop-ha.sh
 ```
 
-**重要提示：** 如果已经手动下载了所有安装包，运行 `update-dockerfile-versions.sh` 只会进行版本同步，不会重新下载。如果缺少某些安装包，脚本会自动下载，但这会非常耗时。
-
-### 3. 构建基础镜像
+### 6. 服务管理
 ```bash
-docker build -t bigdata-base:latest -f dockerfile.base .
+# 查看所有容器状态
+docker ps
+
+# 查看特定组件日志
+docker-compose -f docker-compose.hadoop.yml logs -f
+
+# 停止特定组件
+docker-compose -f docker-compose.hadoop.yml down
+
+# 重启特定组件
+docker-compose -f docker-compose.hadoop.yml restart
+
+# 清理数据（谨慎使用）
+docker-compose -f docker-compose.hadoop.yml down -v
 ```
 
-### 4. 构建组件镜像
+### 7. 常用操作示例
+
+#### Hadoop操作
 ```bash
-# 构建所有组件镜像
-for component in hadoop hive spark flink kafka flume hbase zookeeper mysql; do
-    docker build -t bigdata-${component}:latest -f dockerfile.${component} .
-done
+# 进入Hadoop容器
+docker exec -it hadoop-namenode-1 bash
+
+# HDFS文件操作
+hdfs dfs -ls /                    # 列出根目录
+hdfs dfs -mkdir /user/test        # 创建目录
+hdfs dfs -put localfile.txt /user/test/  # 上传文件
+hdfs dfs -cat /user/test/localfile.txt   # 查看文件内容
+hdfs dfs -rm /user/test/localfile.txt    # 删除文件
+hdfs dfs -du -h /user/test        # 查看目录大小
+hdfs dfs -chmod 755 /user/test    # 修改权限
+hdfs dfs -cp /user/test/localfile.txt /user/backup/  # 复制文件
+
+# HDFS管理
+hdfs dfsadmin -report             # 查看集群状态
+hdfs dfsadmin -safemode get       # 检查安全模式
+hdfs dfsadmin -safemode leave     # 退出安全模式
+
+# YARN作业提交
+yarn jar /opt/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar pi 10 100
+
+# MapReduce作业
+yarn jar /opt/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount /user/test/input /user/test/output
+
+# YARN管理
+yarn node -list                   # 查看节点列表
+yarn application -list            # 查看应用列表
+yarn application -kill <app_id>   # 停止应用
 ```
 
-### 5. 启动集群
-
-## 🔗 组件依赖关系说明
-
-**重要：** 请按照依赖关系顺序启动集群，避免组件间连接失败。
-
-### 依赖关系图
-```
-基础服务层
-├── MySQL (Hive元数据存储)
-├── Flink (流处理)
-└── Flume (数据采集)
-├── ZooKeeper (协调服务)
-│   └── Hadoop HA (高可用集群)
-│   └── Kafka (消息队列)
-│   └── HBase (NoSQL数据库)
-└── Hadoop (标准集群)
-    └── Hive (数据仓库)
-    └── Spark (计算引擎)
-    └── HBase (NoSQL数据库)
-```
-
-### 推荐启动顺序
-
-#### 第一步：基础服务（必须）
+#### HBase操作
 ```bash
-# 1. MySQL - Hive元数据存储
-docker-compose -f docker-compose.mysql.yml up -d
+# 进入HBase容器
+docker exec -it hbase-master-1 bash
 
-# 2. ZooKeeper - 协调服务（Kafka、HBase、Hadoop HA依赖）
-docker-compose -f docker-compose.zookeeper.yml up -d
+# HBase Shell
+hbase shell
 
-# 等待基础服务就绪
-sleep 30
+# 表操作
+create 'test_table', 'cf1', 'cf2'                    # 创建表
+list                                                  # 列出所有表
+describe 'test_table'                                # 查看表结构
+disable 'test_table'                                 # 禁用表
+drop 'test_table'                                    # 删除表
+
+# 数据操作
+put 'test_table', 'row1', 'cf1:name', 'value1'       # 插入数据
+put 'test_table', 'row1', 'cf2:age', '25'            # 插入另一列族数据
+get 'test_table', 'row1'                             # 获取单行数据
+get 'test_table', 'row1', 'cf1'                      # 获取指定列族
+scan 'test_table'                                    # 扫描全表
+delete 'test_table', 'row1', 'cf1:name'              # 删除数据
+
+# 管理操作
+status                                               # 集群状态
+version                                              # HBase版本
 ```
 
-#### 第二步：存储与计算（核心组件）
+#### Hive操作
 ```bash
-# 3. Hadoop集群（选择一种环境）
-# 标准环境：
-docker-compose -f docker-compose.hadoop.yml up -d
-# 或者高可用环境：
-# docker-compose -f docker-compose.hadoop-ha.yml up -d
+# 连接HiveServer2
+beeline -u jdbc:hive2://localhost:10000
 
-# 等待Hadoop就绪
-sleep 60
+# 数据库操作
+CREATE DATABASE test_db;                    # 创建数据库
+SHOW DATABASES;                             # 列出数据库
+USE test_db;                                # 切换数据库
 
-# 4. Hive数据仓库（依赖Hadoop和MySQL）
-docker-compose -f docker-compose.hive.yml up -d
+# 表操作
+CREATE TABLE test_table (id INT, name STRING, age INT) PARTITIONED BY (dt STRING);
+SHOW TABLES;                                # 列出表
+DESCRIBE test_table;                        # 查看表结构
 
-# 5. HBase数据库（依赖Hadoop和ZooKeeper）
-docker-compose -f docker-compose.hbase.yml up -d
+# 数据操作
+INSERT INTO test_table VALUES (1, 'Alice', 25, '2024-01-01');
+INSERT INTO test_table VALUES (2, 'Bob', 30, '2024-01-01');
+SELECT * FROM test_table;                   # 查询数据
+SELECT name, age FROM test_table WHERE age > 25;  # 条件查询
 
-# 6. Spark计算引擎（依赖Hadoop）
-docker-compose -f docker-compose.spark.yml up -d
+# 分区操作
+SHOW PARTITIONS test_table;                 # 查看分区
+ALTER TABLE test_table ADD PARTITION (dt='2024-01-02');
+
+# 外部表操作
+CREATE EXTERNAL TABLE external_table (id INT, name STRING) 
+LOCATION '/user/hive/external_table';
+
+# 视图操作
+CREATE VIEW test_view AS SELECT name, age FROM test_table WHERE age > 25;
+SELECT * FROM test_view;
+
+# 数据导出
+INSERT OVERWRITE LOCAL DIRECTORY '/tmp/output' SELECT * FROM test_table;
 ```
 
-#### 第三步：消息与流处理（可选）
+#### ZooKeeper操作
 ```bash
-# 7. Kafka消息队列（依赖ZooKeeper）
-docker-compose -f docker-compose.kafka.yml up -d
+# 进入ZooKeeper容器
+docker exec -it zookeeper-1 bash
 
-# 8. Flink流处理（独立服务）
-docker-compose -f docker-compose.flink.yml up -d
+# 连接ZooKeeper
+zkCli.sh -server localhost:2181
 
-# 9. Flume数据采集（依赖Kafka）
-docker-compose -f docker-compose.flume.yml up -d
+# 节点操作
+ls /                                      # 列出根节点
+create /test_node "test_data"            # 创建节点
+get /test_node                           # 获取节点数据
+set /test_node "updated_data"            # 更新节点数据
+delete /test_node                        # 删除节点
+
+# 监控操作
+stat /                                   # 查看节点状态
+ls2 /                                    # 详细列出节点
 ```
 
-### 快速启动（全部组件）
+#### Kafka操作
 ```bash
-# 按依赖顺序启动所有组件
-bash -c '
-  docker-compose -f docker-compose.mysql.yml up -d
-  docker-compose -f docker-compose.zookeeper.yml up -d
-  sleep 30
-  docker-compose -f docker-compose.hadoop.yml up -d
-  sleep 60
-  docker-compose -f docker-compose.hive.yml up -d
-  docker-compose -f docker-compose.hbase.yml up -d
-  docker-compose -f docker-compose.spark.yml up -d
-  docker-compose -f docker-compose.kafka.yml up -d
-  docker-compose -f docker-compose.flink.yml up -d
-  docker-compose -f docker-compose.flume.yml up -d
-'
-```
+# 进入Kafka容器
+docker exec -it kafka-broker-1 bash
 
-### 6. 运行功能测试
-```bash
-# 测试所有组件
-for test_script in test/test-*.sh; do
-    echo "运行测试: $(basename $test_script)"
-    bash $test_script
-done
-```
-
-## 🌐 组件Web UI与访问信息
-
-### 📊 管理界面链接
-
-**大数据平台所有组件的Web管理界面均可通过本地端口访问：**
-
-#### 存储与计算层
-- **Hadoop NameNode** - http://localhost:19870
-- **Hadoop ResourceManager** - http://localhost:18088
-- **Hadoop DataNode** (示例) - http://localhost:19864
-- **Spark Master** - http://localhost:8080
-- **Spark History Server** - http://localhost:18080
-- **Spark Worker** (示例) - http://localhost:8081
-
-#### 数据仓库与数据库
-- **Hive Server2** - JDBC: jdbc:hive2://localhost:10000
-- **HBase Master** - http://localhost:16210
-- **HBase RegionServer1** - http://localhost:16030
-- **HBase RegionServer2** - http://localhost:16031
-
-#### 消息与流处理
-- **Flink Dashboard** - http://localhost:18081
-- **Kafka Manager** (如果部署) - http://localhost:9000
-
-#### 协调服务
-- **ZooKeeper** (无Web UI，使用CLI)
-
-### 🔐 账号密码信息
-
-#### MySQL数据库
-- **主机**: localhost:3306
-- **数据库**: hive
-- **用户名**: hive
-- **密码**: hive
-- **Root用户**: root
-- **Root密码**: root
-
-#### Hive数据仓库
-- **连接字符串**: jdbc:hive2://localhost:10000
-- **默认数据库**: default
-- **认证方式**: 无认证（开发环境）
-
-#### Hadoop集群
-- **HDFS Web UI**: 无需认证
-- **YARN Web UI**: 无需认证
-- **MapReduce History Server**: 无需认证
-
-#### Spark集群
-- **Spark Master UI**: 无需认证
-- **Spark History Server**: 无需认证
-
-#### Flink集群
-- **Flink Dashboard**: 无需认证
-
-#### Kafka集群
-- **Broker地址**: localhost:9092
-- **ZooKeeper连接**: localhost:2181
-
-#### HBase数据库
-- **HBase Master UI**: 无需认证
-- **Thrift Server**: localhost:9090
-
-### 🔧 常用访问命令
-
-#### HDFS文件系统操作
-```bash
-# 查看HDFS文件系统
-docker exec namenode hdfs dfs -ls /
-
-# 上传文件到HDFS
-docker exec namenode hdfs dfs -put /local/file /hdfs/path/
-
-# 查看HDFS状态
-docker exec namenode hdfs dfsadmin -report
-```
-
-#### YARN资源管理
-```bash
-# 查看YARN节点状态
-docker exec namenode yarn node -list
-
-# 查看运行的应用
-docker exec namenode yarn application -list
-
-# 杀死应用
-docker exec namenode yarn application -kill <application_id>
-```
-
-#### Hive数据查询
-```bash
-# 连接Hive Server2
-docker exec hive-server2 beeline -u jdbc:hive2://localhost:10000
-
-# 执行Hive SQL
-docker exec hive-server2 beeline -u jdbc:hive2://localhost:10000 -e "SHOW DATABASES;"
-```
-
-#### Spark作业提交
-```bash
-# 提交Spark作业到YARN
-docker exec spark-master spark-submit --master yarn --class com.example.Main /path/to/job.jar
-
-# 提交Spark作业到Standalone
-docker exec spark-master spark-submit --master spark://spark-master:7077 --class com.example.Main /path/to/job.jar
-```
-
-#### Flink作业管理
-```bash
-# 查看Flink作业列表
-docker exec flink-jobmanager /opt/flink/bin/flink list
-
-# 提交Flink作业
-docker exec flink-jobmanager /opt/flink/bin/flink run /path/to/job.jar
-
-# 取消Flink作业
-docker exec flink-jobmanager /opt/flink/bin/flink cancel <job_id>
-```
-
-#### Kafka主题管理
-```bash
-# 查看Kafka主题列表
-docker exec kafka1 /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server kafka1:9092
-
-# 创建Kafka主题
-docker exec kafka1 /opt/kafka/bin/kafka-topics.sh --create --topic test-topic --partitions 3 --replication-factor 3 --bootstrap-server kafka1:9092
+# 主题操作
+kafka-topics.sh --create --topic test-topic --partitions 3 --replication-factor 3 --bootstrap-server localhost:9092
+kafka-topics.sh --list --bootstrap-server localhost:9092
+kafka-topics.sh --describe --topic test-topic --bootstrap-server localhost:9092
 
 # 生产消息
-docker exec kafka1 /opt/kafka/bin/kafka-console-producer.sh --topic test-topic --bootstrap-server kafka1:9092
+echo "test message 1" | kafka-console-producer.sh --topic test-topic --bootstrap-server localhost:9092
+echo "test message 2" | kafka-console-producer.sh --topic test-topic --bootstrap-server localhost:9092
 
 # 消费消息
-docker exec kafka1 /opt/kafka/bin/kafka-console-consumer.sh --topic test-topic --from-beginning --bootstrap-server kafka1:9092
+kafka-console-consumer.sh --topic test-topic --from-beginning --bootstrap-server localhost:9092
+kafka-console-consumer.sh --topic test-topic --group test-group --bootstrap-server localhost:9092
+
+# 查看消费者组
+kafka-consumer-groups.sh --list --bootstrap-server localhost:9092
+kafka-consumer-groups.sh --describe --group test-group --bootstrap-server localhost:9092
 ```
 
-#### HBase数据操作
+#### Spark操作
 ```bash
-# 进入HBase Shell
-docker exec hbase-master hbase shell
+# 进入Spark容器
+docker exec -it spark-master-1 bash
 
-# 在HBase Shell中执行命令
-list           # 列出所有表
-create 'test', 'cf'  # 创建表
-put 'test', 'row1', 'cf:col1', 'value1'  # 插入数据
-scan 'test'    # 扫描表数据
+# Spark Shell交互
+spark-shell --master spark://spark-master:7077
+
+# 提交Spark作业
+spark-submit --class org.apache.spark.examples.SparkPi --master spark://spark-master:7077 /opt/spark/examples/jars/spark-examples_2.12-3.1.1.jar 100
+
+# YARN模式提交
+spark-submit --class org.apache.spark.examples.SparkPi --master yarn /opt/spark/examples/jars/spark-examples_2.12-3.1.1.jar 100
+
+# 读取HDFS数据
+spark-submit --class org.apache.spark.examples.SparkPi --master spark://spark-master:7077 --conf spark.sql.warehouse.dir=/user/hive/warehouse /opt/spark/examples/jars/spark-examples_2.12-3.1.1.jar 100
 ```
 
-### ⚠️ 安全注意事项
+#### Flink操作
+```bash
+# 进入Flink容器
+docker exec -it flink-jobmanager-1 bash
 
-1. **开发环境配置** - 当前配置为开发环境，生产环境需要加强安全配置
-2. **网络访问限制** - 建议在生产环境中限制外部访问
-3. **密码管理** - 生产环境应使用强密码和密钥管理
-4. **SSL/TLS加密** - 生产环境建议启用传输层加密
+# 提交Flink作业
+flink run -d /opt/flink/examples/streaming/WordCount.jar --input hdfs://namenode:9000/user/test/input --output hdfs://namenode:9000/user/test/output
 
-## 📋 测试说明
+# 查看作业状态
+flink list
+flink cancel <job_id>
 
-项目包含完整的测试体系，每个组件都有对应的测试脚本和说明文档：
+# 提交批处理作业
+flink run -d /opt/flink/examples/batch/WordCount.jar --input hdfs://namenode:9000/user/test/input --output hdfs://namenode:9000/user/test/output
+```
 
-- **测试脚本位置**：`test/test-*.sh`
-- **测试说明文档**：`test/test-*.md`
-- **测试覆盖范围**：组件状态、功能验证、集成测试
+#### Flume操作
+```bash
+# 进入Flume容器
+docker exec -it flume-agent-1 bash
 
-详细测试说明请参考各测试脚本对应的说明文档。
+# 启动Flume Agent
+flume-ng agent --conf /opt/flume/conf --conf-file /opt/flume/conf/flume-kafka.conf --name agent -Dflume.root.logger=INFO,console
 
-## 🔄 版本控制
+# 测试数据流
+echo "test log message" >> /tmp/test.log
+```
 
-项目使用Git进行版本控制，已排除以下目录：
-- `module/` - 安装包文件
-- `data/` - 运行时数据
-- `logs/` - 日志文件
+## 🚀 架构二：5节点全栈集群部署
 
-## 📞 技术支持
+### 1. 构建统一镜像
+```bash
+# 构建基础镜像
+docker build -f dockerfile.base -t bigdata-base:latest .
 
-如有问题或建议，请参考各组件对应的测试说明文档，或检查组件日志文件。
+# 构建全栈镜像
+docker build -f dockerfile.all-in-one -t bigdata-all-in-one:latest .
+```
+
+### 2. 启动集群
+```bash
+# 一键启动5节点集群
+docker-compose -f docker-compose.5-node-cluster.yml up -d
+```
+
+### 3. 服务启动顺序
+集群启动时，每个节点的entrypoint脚本会按以下顺序启动服务：
+
+**Worker节点启动流程**：
+1. ZooKeeper → 2. DataNode → 3. NodeManager → 4. Kafka → 5. HBase RegionServer → 6. Spark Worker → 7. Flink TaskManager
+
+**Master节点启动流程**：
+1. NameNode → 2. ResourceManager → 3. Hive Metastore → 4. Hive Server2 → 5. HBase Master → 6. Spark Master → 7. Flink JobManager
+
+**Infra节点启动流程**：
+1. MySQL → 2. Flume Agent
+
+### 4. 服务访问地址
+
+| 服务 | Web UI | 映射端口 | 容器端口 |
+|------|--------|----------|----------|
+| **HDFS NameNode** | http://localhost:29870 | 29870 | 9870 |
+| **YARN ResourceManager** | http://localhost:28088 | 28088 | 8088 |
+| **HBase Master** | http://localhost:26010 | 26010 | 16010 |
+| **Spark Master** | http://localhost:28080 | 28080 | 8080 |
+| **Flink Dashboard** | http://localhost:28081 | 28081 | 8081 |
+| **HiveServer2** | http://localhost:21002 | 21002 | 10002 |
+
+### 5. 功能测试
+```bash
+# 运行完整集群功能测试（73项测试）
+./test/cluster-test.sh
+
+# 测试结果示例
+# ========================================
+#   测试结果汇总
+# ========================================
+#   总测试数: 73
+#   通过: 73
+#   失败: 0
+#   跳过: 0
+#   成功率: 100%
+```
+
+### 6. 服务管理
+
+#### 查看服务状态
+```bash
+# 查看容器状态
+docker-compose -f docker-compose.5-node-cluster.yml ps
+
+# 查看各节点Supervisor服务状态
+docker exec master supervisorctl status
+docker exec worker-1 supervisorctl status
+docker exec infra supervisorctl status
+```
+
+#### 日志管理
+```bash
+# 查看所有容器日志
+docker-compose -f docker-compose.5-node-cluster.yml logs -f
+
+# 查看特定节点日志
+docker logs -f master
+docker logs -f worker-1
+
+# 查看特定服务日志
+docker exec master tail -f /opt/hadoop/logs/hadoop-root-namenode-master.log
+```
+
+#### 集群操作
+```bash
+# 停止集群
+docker-compose -f docker-compose.5-node-cluster.yml down
+
+# 重启集群
+docker-compose -f docker-compose.5-node-cluster.yml restart
+
+# 清理数据卷（谨慎使用）
+docker-compose -f docker-compose.5-node-cluster.yml down -v
+```
+
+### 7. 常用操作示例
+
+#### 集群内操作
+```bash
+# 进入Master节点
+docker exec -it master bash
+
+# HDFS操作
+hdfs dfs -ls /
+hdfs dfs -mkdir -p /user/test
+hdfs dfs -put /opt/hadoop/LICENSE.txt /user/test/
+
+# HBase操作
+hbase shell
+create 'test_table', 'cf1', 'cf2'
+put 'test_table', 'row1', 'cf1:name', 'value1'
+scan 'test_table'
+
+# Hive操作
+beeline -u jdbc:hive2://localhost:10000
+CREATE DATABASE test_db;
+USE test_db;
+CREATE TABLE test_table (id INT, name STRING);
+INSERT INTO test_table VALUES (1, 'test_value');
+SELECT * FROM test_table;
+```
+
+#### Kafka操作
+```bash
+# 进入Worker节点
+docker exec -it worker-1 bash
+
+# Kafka主题操作
+kafka-topics.sh --create --topic test-topic --partitions 3 --replication-factor 3 --bootstrap-server worker-1:9092
+kafka-topics.sh --list --bootstrap-server worker-1:9092
+
+# 生产消息
+echo "test message" | kafka-console-producer.sh --topic test-topic --bootstrap-server worker-1:9092
+
+# 消费消息
+kafka-console-consumer.sh --topic test-topic --from-beginning --bootstrap-server worker-1:9092
+```
+
+#### Spark操作
+```bash
+# Spark Pi计算示例（Standalone模式）
+spark-submit --class org.apache.spark.examples.SparkPi --master spark://master:7077 /opt/spark/examples/jars/spark-examples_2.12-3.1.1.jar 100
+
+# Spark Pi计算示例（YARN模式）
+spark-submit --class org.apache.spark.examples.SparkPi --master yarn /opt/spark/examples/jars/spark-examples_2.12-3.1.1.jar 100
+```
+
+#### Flink操作
+```bash
+# 提交Flink WordCount作业
+flink run -d /opt/flink/examples/streaming/WordCount.jar --input hdfs://master:9000/user/test/LICENSE.txt --output hdfs://master:9000/user/test/wordcount-output
+
+# 查看Flink作业状态
+flink list
+```
+
+## 🔧 故障排除
+
+### 常见问题
+
+#### 1. HDFS安全模式问题
+```bash
+# 检查安全模式状态
+docker exec master hdfs dfsadmin -safemode get
+
+# 强制退出安全模式
+docker exec master hdfs dfsadmin -safemode leave
+```
+
+#### 2. HBase启动失败
+```bash
+# 清理HBase残留数据
+docker exec master hdfs dfs -rm -r -skipTrash /hbase
+docker exec master hdfs dfs -rm -r -skipTrash /tmp/hbase
+
+# 重启HBase服务
+docker exec master supervisorctl restart hbase-master
+```
+
+#### 3. 内存不足问题
+- 检查Docker内存限制：Docker Desktop → Settings → Resources
+- 调整容器内存限制：修改docker-compose文件中的内存配置
+- 优化组件内存配置：修改config目录下的配置文件
+
+#### 4. 端口冲突问题
+- 检查端口占用：`netstat -an | grep <端口号>`
+- 修改映射端口：编辑docker-compose文件中的ports配置
+
+### 性能优化建议
+
+1. **内存优化**：根据物理内存调整各组件内存配置
+2. **磁盘优化**：使用SSD存储，配置数据卷优化IO性能
+3. **网络优化**：使用host网络模式减少网络开销
+4. **配置优化**：根据负载调整HDFS块大小、Spark分区数等参数
+
+## 📊 监控与维护
+
+### 健康监控
+每个节点都运行健康监控服务，定期检查关键服务状态：
+```bash
+# 查看健康监控日志
+docker exec master tail -f /opt/hadoop/logs/health-monitor.log
+```
+
+### 性能监控
+- **HDFS**：NameNode Web UI (http://localhost:29870)
+- **YARN**：ResourceManager Web UI (http://localhost:28088)
+- **HBase**：HMaster Web UI (http://localhost:26010)
+- **Spark**：Master Web UI (http://localhost:28080)
+- **Flink**：Dashboard (http://localhost:28081)
+
+## 📁 项目结构详解
+
+```
+Bigdata/
+├── config/                    # 配置文件目录
+│   ├── all-in-one/           # 5节点全栈集群配置
+│   │   ├── hadoop/           # Hadoop配置文件
+│   │   ├── hadoop-master/    # Master节点Hadoop配置
+│   │   ├── hadoop-worker/    # Worker节点Hadoop配置
+│   │   ├── hbase-master/     # HBase Master配置
+│   │   ├── hbase-worker/     # HBase RegionServer配置
+│   │   ├── hive/             # Hive配置
+│   │   ├── kafka/            # Kafka配置
+│   │   ├── spark-master/     # Spark Master配置
+│   │   ├── spark-worker/     # Spark Worker配置
+│   │   ├── flink-master/     # Flink JobManager配置
+│   │   ├── flink-worker/     # Flink TaskManager配置
+│   │   ├── zookeeper/        # ZooKeeper配置
+│   │   ├── mysql/            # MySQL配置
+│   │   ├── flume/            # Flume配置
+│   │   └── supervisor/       # Supervisor服务配置
+│   └── component/            # 单组件独立集群配置
+│       ├── hadoop/           # Hadoop标准配置
+│       ├── hadoop-ha/        # Hadoop高可用配置
+│       ├── hbase/            # HBase配置
+│       ├── hive/             # Hive配置
+│       ├── kafka/            # Kafka配置
+│       ├── spark/            # Spark配置
+│       ├── flink/            # Flink配置
+│       ├── zookeeper/        # ZooKeeper配置
+│       ├── mysql/            # MySQL配置
+│       ├── flume/            # Flume配置
+│       └── supervisor/       # Supervisor配置
+├── scripts/                  # 管理脚本目录
+│   ├── all-in-one-entrypoint.sh  # 5节点集群统一启动脚本
+│   ├── hadoop-entrypoint.sh      # Hadoop启动脚本
+│   ├── hadoop-ha-entrypoint.sh   # Hadoop高可用启动脚本
+│   ├── hbase-entrypoint.sh       # HBase启动脚本
+│   ├── hive-entrypoint.sh        # Hive启动脚本
+│   ├── kafka-entrypoint.sh       # Kafka启动脚本
+│   ├── spark-entrypoint.sh       # Spark启动脚本
+│   ├── flink-entrypoint.sh       # Flink启动脚本
+│   ├── zookeeper-entrypoint.sh   # ZooKeeper启动脚本
+│   ├── mysql-entrypoint.sh       # MySQL启动脚本
+│   ├── flume-entrypoint.sh       # Flume启动脚本
+│   ├── network.sh                # Docker网络管理脚本
+│   └── update-dockerfile-versions.sh  # 版本同步脚本
+├── test/                     # 测试脚本目录
+│   ├── cluster-test.sh           # 5节点全栈集群完整测试
+│   ├── cluster_test/             # 集群测试子模块
+│   │   ├── main_test.sh          # 主测试脚本
+│   │   ├── test_hdfs.sh          # HDFS功能测试
+│   │   ├── test_hbase.sh         # HBase功能测试
+│   │   ├── test_hive.sh          # Hive功能测试
+│   │   ├── test_zookeeper.sh     # ZooKeeper功能测试
+│   │   └── test_flink.sh         # Flink功能测试
+│   ├── test-hadoop.sh            # Hadoop独立测试
+│   ├── test-hadoop-ha.sh         # Hadoop高可用测试
+│   ├── test-hbase.sh             # HBase独立测试
+│   ├── test-hive.sh              # Hive独立测试
+│   ├── test-kafka.sh             # Kafka独立测试
+│   ├── test-spark.sh             # Spark独立测试
+│   ├── test-flink.sh             # Flink独立测试
+│   ├── test-flume.sh             # Flume独立测试
+│   ├── test-zookeeper.sh         # ZooKeeper独立测试
+│   ├── test-flume-kafka.sh       # Flume-Kafka联动测试
+│   └── *.md                      # 测试文档说明
+├── module/                   # 组件安装包目录
+│   ├── hadoop-3.1.3.tar.gz          # Hadoop安装包
+│   ├── apache-hive-3.1.2-bin.tar.gz # Hive安装包
+│   ├── hbase-2.2.3-bin.tar.gz       # HBase安装包
+│   ├── apache-zookeeper-3.6.3-bin.tar.gz # ZooKeeper安装包
+│   ├── kafka_2.12-2.4.1.tgz         # Kafka安装包
+│   ├── spark-3.1.1-bin-hadoop3.2.tgz # Spark安装包
+│   ├── flink-1.14.0-bin-scala_2.12.tar # Flink安装包
+│   ├── apache-flume-1.9.0-bin.tar.gz # Flume安装包
+│   ├── mysql-connector-java-5.1.49.jar # MySQL JDBC驱动
+│   └── guava-27.0-jre.jar           # Guava库（Hive依赖）
+├── dockerfile.all-in-one     # 5节点全栈集群统一镜像构建文件
+├── dockerfile.base           # 基础镜像构建文件
+├── dockerfile.hadoop         # Hadoop镜像构建文件
+├── dockerfile.hbase          # HBase镜像构建文件
+├── dockerfile.hive           # Hive镜像构建文件
+├── dockerfile.zookeeper      # ZooKeeper镜像构建文件
+├── dockerfile.kafka          # Kafka镜像构建文件
+├── dockerfile.spark          # Spark镜像构建文件
+├── dockerfile.flink          # Flink镜像构建文件
+├── dockerfile.flume          # Flume镜像构建文件
+├── dockerfile.mysql          # MySQL镜像构建文件
+├── docker-compose.5-node-cluster.yml    # 5节点全栈集群编排文件
+├── docker-compose.hadoop.yml            # Hadoop集群编排文件
+├── docker-compose.hadoop-ha.yml         # Hadoop高可用编排文件
+├── docker-compose.hbase.yml             # HBase集群编排文件
+├── docker-compose.hive.yml              # Hive服务编排文件
+├── docker-compose.kafka.yml             # Kafka集群编排文件
+├── docker-compose.spark.yml             # Spark集群编排文件
+├── docker-compose.flink.yml             # Flink集群编排文件
+├── docker-compose.zookeeper.yml         # ZooKeeper集群编排文件
+├── docker-compose.mysql.yml             # MySQL服务编排文件
+├── docker-compose.flume.yml             # Flume服务编排文件
+├── README.md                # 项目主文档
+└── Todo.md                  # 开发任务清单
+```
+
+## 📋 各目录详细作用
+
+### 1. **config/ - 配置文件目录**
+- **all-in-one/**：5节点全栈集群配置，按节点角色划分
+- **component/**：单组件独立集群配置，按组件类型划分
+- 包含XML、YAML、Properties等格式的配置文件
+- 支持内存优化、网络配置、服务参数调整
+
+### 2. **scripts/ - 管理脚本目录**
+- **entrypoint脚本**：容器启动时的初始化脚本，处理服务依赖和配置
+- **network.sh**：创建和管理Docker网络，确保组件间通信
+- **update-dockerfile-versions.sh**：同步所有Dockerfile的版本信息
+
+### 3. **test/ - 测试脚本目录**
+- **cluster-test.sh**：5节点全栈集群的完整功能测试（73项测试）
+- **组件独立测试**：每个大数据组件的功能验证
+- **集成测试**：组件间联动测试（如Flume-Kafka）
+- **高可用测试**：Hadoop HA模式验证
+
+### 4. **module/ - 组件安装包目录**
+- 包含所有大数据组件的官方安装包
+- 版本统一管理，确保兼容性
+- 包含必要的依赖库（MySQL驱动、Guava等）
+
+### 5. **Dockerfile文件**
+- **dockerfile.base**：基础镜像，包含Java环境和系统工具
+- **dockerfile.all-in-one**：5节点全栈集群统一镜像
+- **组件Dockerfile**：各组件独立镜像构建文件
+
+### 6. **Docker Compose文件**
+- **docker-compose.5-node-cluster.yml**：5节点全栈集群编排
+- **组件编排文件**：各组件独立集群的容器编排
+- 定义服务依赖、网络配置、数据卷等
+
+## 🔧 文件作用总结
+
+| 文件类型 | 主要作用 | 关键文件示例 |
+|----------|----------|--------------|
+| **配置文件** | 定义服务参数和运行环境 | `config/all-in-one/hadoop/core-site.xml` |
+| **启动脚本** | 容器初始化和服务管理 | `scripts/all-in-one-entrypoint.sh` |
+| **测试脚本** | 验证集群功能和性能 | `test/cluster-test.sh` |
+| **构建文件** | 镜像构建和环境准备 | `dockerfile.all-in-one` |
+| **编排文件** | 容器部署和服务编排 | `docker-compose.5-node-cluster.yml` |
+| **安装包** | 组件二进制文件和依赖 | `module/hadoop-3.1.3.tar.gz` |
+
+## 🤝 贡献指南
+
+欢迎贡献代码和文档！请遵循以下步骤：
+
+1. Fork 本项目
+2. 创建功能分支：`git checkout -b feature/AmazingFeature`
+3. 提交更改：`git commit -m 'Add some AmazingFeature'`
+4. 推送到分支：`git push origin feature/AmazingFeature`
+5. 提交 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🙏 致谢
+
+感谢以下开源项目：
+- Apache Hadoop, HBase, Hive, Spark, Flink, Kafka, ZooKeeper, Flume
+- Docker & Docker Compose
+- Ubuntu WSL2
+
+---
+
+**注意**：本项目主要用于学习和测试目的，生产环境使用前请进行充分测试和性能优化。

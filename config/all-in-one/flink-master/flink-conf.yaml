@@ -1,0 +1,18 @@
+jobmanager.rpc.address: master
+jobmanager.rpc.port: 6123
+jobmanager.memory.process.size: 1024m
+jobmanager.bind-host: 0.0.0.0
+
+taskmanager.memory.process.size: 1024m
+taskmanager.numberOfTaskSlots: 2
+taskmanager.host: master
+
+rest.address: master
+rest.port: 8081
+rest.bind-address: 0.0.0.0
+
+state.backend: jobmanager
+state.checkpoints.dir: file:///opt/flink/checkpoints
+state.savepoints.dir: file:///opt/flink/savepoints
+
+parallelism.default: 2

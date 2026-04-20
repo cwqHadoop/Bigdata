@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- ===============================================
+Hadoop Master节点HDFS配置文件
+作用：定义HDFS分布式文件系统的具体配置参数
+原理：配置NameNode和DataNode的存储、复制等参数
+节点类型：master节点专用配置
+=============================================== -->
+
+<configuration>
+    <!-- ===============================================
+    HDFS数据块复制因子配置
+    作用：定义HDFS文件块的副本数量
+    原理：确保数据的可靠性和容错能力
+    副本数：3，适合5节点集群的可靠性要求
+    =============================================== -->
+    <property>
+        <name>dfs.replication</name>
+        <value>3</value>
+        <description>HDFS数据块副本数量</description>
+    </property>
+
+    <!-- ===============================================
+    名称节点数据目录配置
+    作用：定义NameNode元数据的存储目录
+    原理：存储文件系统命名空间和编辑日志
+    路径：使用容器内的持久化数据目录
+    =============================================== -->
+    <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>file:///opt/hadoop/data/namenode</value>
+        <description>NameNode元数据存储目录</description>
+    </property>
+
+    <!-- ===============================================
+    检查点目录配置
+    作用：定义SecondaryNameNode检查点目录
+    原理：用于定期合并编辑日志到镜像文件
+    路径：与NameNode数据目录分离，避免冲突
+    =============================================== -->
+    <property>
+        <name>dfs.namenode.checkpoint.dir</name>
+        <value>file:///opt/hadoop/data/checkpoint</value>
+        <description>SecondaryNameNode检查点目录</description>
+    </property>
+
+    <!-- ===============================================
+    编辑日志目录配置
+    作用：定义NameNode编辑日志的存储目录
+    原理：记录文件系统的所有更改操作
+    路径：与元数据目录分离，提高可靠性
+    =============================================== -->
+    <property>
+        <name>dfs.namenode.edits.dir</name>
+        <value>file:///opt/hadoop/data/edits</value>
+        <description>NameNode编辑日志存储目录</description>
+    </property>
+
+    <!-- ===============================================
+    数据节点数据目录配置
+    作用：定义DataNode数据块的存储目录
+    原理：存储实际的HDFS文件数据块
+    路径：使用容器内的持久化数据目录
+    =============================================== -->
+    <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>file:///opt/hadoop/data/datanode</value>
+        <description>DataNode数据块存储目录</description>
+    </property>
+
+    <!-- ===============================================
+    HDFS权限检查配置
+    作用：启用或禁用HDFS权限检查
+    原理：控制文件系统的访问权限验证
+    教学环境：禁用权限检查，便于学习和测试
+    =============================================== -->
+    <property>
+        <name>dfs.permissions</name>
+        <value>false</value>
+        <description>是否启用HDFS权限检查</description>
+    </property>
+
+    <!-- ===============================================
+    数据块大小配置
+    作用：定义HDFS数据块的大小
+    原理：影响文件存储的效率和并行度
+    大小：128MB，适合大数据处理场景
+    =============================================== -->
+    <property>
+        <name>dfs.blocksize</name>
+        <value>134217728</value>
+        <description>HDFS数据块大小(128MB)</description>
+    </property>
+
+    <!-- ===============================================
+    心跳间隔配置
+    作用：定义DataNode向NameNode发送心跳的间隔
+    原理：用于监控DataNode的健康状态
+    间隔：3秒，平衡实时性和性能开销
+    =============================================== -->
+    <property>
+        <name>dfs.heartbeat.interval</name>
+        <value>3</value>
+        <description>DataNode心跳间隔(秒)</description>
+    </property>
+
+    <!-- ===============================================
+    复制进度间隔配置
+    作用：定义数据复制进度报告的间隔
+    原理：用于监控数据块复制的进度
+    间隔：10秒，平衡实时性和性能
+    =============================================== -->
+    <property>
+        <name>dfs.namenode.replication.interval</name>
+        <value>10</value>
+        <description>复制进度报告间隔(秒)</description>
+    </property>
+
+    <!-- ===============================================
+    服务处理器数量配置
+    作用：定义NameNode服务处理器的数量
+    原理：影响NameNode处理客户端请求的并发能力
+    数量：10，适合教学环境的并发需求
+    =============================================== -->
+    <property>
+        <name>dfs.namenode.service.handler.count</name>
+        <value>10</value>
+        <description>NameNode服务处理器数量</description>
+    </property>
+
+    <!-- ===============================================
+    WebHDFS启用配置
+    作用：启用或禁用WebHDFS REST API
+    原理：提供通过HTTP协议访问HDFS的能力
+    教学环境：启用，便于测试和调试
+    =============================================== -->
+    <property>
+        <name>dfs.webhdfs.enabled</name>
+        <value>true</value>
+        <description>是否启用WebHDFS</description>
+    </property>
+
+    <!-- ===============================================
+    支持HTTP方法配置
+    作用：定义WebHDFS支持的HTTP方法
+    原理：控制通过HTTP协议对HDFS的操作权限
+    方法：支持GET、PUT、POST、DELETE等操作
+    =============================================== -->
+    <property>
+        <name>dfs.webhdfs.rest-csrf.enabled</name>
+        <value>false</value>
+        <description>是否启用WebHDFS CSRF保护</description>
+    </property>
+
+    <!-- ===============================================
+    内存优化配置
+    作用：限制HDFS组件的内存使用
+    原理：通过JVM参数控制堆内存大小
+    重要性：确保在16GB内存限制下稳定运行
+    =============================================== -->
+    <property>
+        <name>dfs.namenode.max.objects</name>
+        <value>0</value>
+        <description>NameNode最大对象数量限制(0表示无限制)</description>
+    </property>
+
+    <!-- ===============================================
+    数据节点均衡配置
+    作用：配置DataNode数据均衡的相关参数
+    原理：控制数据在集群中的分布均衡性
+    带宽：限制均衡操作使用的网络带宽
+    =============================================== -->
+    <property>
+        <name>dfs.datanode.balance.bandwidthPerSec</name>
+        <value>10485760</value>
+        <description>DataNode均衡带宽限制(10MB/s)</description>
+    </property>
+
+</configuration>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- ===============================================
+Hadoop Worker节点HDFS配置文件
+作用：定义Worker节点DataNode的存储配置
+原理：配置数据块存储目录和通信参数
+节点类型：worker-1/2/3节点专用配置
+=============================================== -->
+
+<configuration>
+    <!-- HDFS数据块复制因子配置 -->
+    <property>
+        <name>dfs.replication</name>
+        <value>3</value>
+        <description>HDFS数据块副本数量</description>
+    </property>
+
+    <!-- 数据节点数据目录配置 -->
+    <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>file:///opt/hadoop/data/datanode</value>
+        <description>DataNode数据块存储目录</description>
+    </property>
+
+    <!-- 数据节点地址配置 -->
+    <property>
+        <name>dfs.datanode.address</name>
+        <value>0.0.0.0:50010</value>
+        <description>DataNode数据传输地址</description>
+    </property>
+
+    <!-- 数据节点HTTP配置 -->
+    <property>
+        <name>dfs.datanode.http.address</name>
+        <value>0.0.0.0:50075</value>
+        <description>DataNode HTTP服务地址</description>
+    </property>
+
+    <!-- HDFS权限检查配置 -->
+    <property>
+        <name>dfs.permissions</name>
+        <value>false</value>
+        <description>是否启用HDFS权限检查</description>
+    </property>
+</configuration>
